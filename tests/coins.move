@@ -9,13 +9,13 @@ script {
 }
 
 /// price: eth_btc 4078
-/// price: btc_xfi 20
+/// price: btc_pont 20
 script {
     use 0x01::Coins;
-    use 0x01::XFI;
+    use 0x01::PONT;
 
     fun test_get_price() {
         assert(Coins::get_price<Coins::ETH, Coins::BTC>() == 4078, 1);
-        assert(Coins::get_price<Coins::BTC, XFI::T>() == 20, 2);
+        assert(Coins::get_price<Coins::BTC, PONT::T>() == 20, 2);
     }
 }
