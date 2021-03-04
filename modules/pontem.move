@@ -1,9 +1,9 @@
 address 0x1 {
 
-/// Dfinance is a governance module which handles balances merging. It's basically
+/// Pontem is a governance module which handles balances merging. It's basically
 /// a mediator or wrapper around money-related operations. It holds knowledge about
 /// registered coins and rules of their usage. Also it lessens load from 0x1::Account
-module Dfinance {
+module Pontem {
 
     use 0x1::Event;
     use 0x1::Signer;
@@ -25,7 +25,6 @@ module Dfinance {
         total_supply: u128
     }
 
-    //
     public fun mint<Coin>(value: u128): T<Coin> {
         T<Coin> { value }
     }
