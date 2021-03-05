@@ -89,23 +89,26 @@ module Pontem {
     }
 
     /// only 0x1 address and add denom descriptions, 0x1 holds information resource
-    public fun register_coin<Coin: copyable>(account: &signer, denom: vector<u8>, decimals: u8) {
-        assert_can_register_coin(account);
+    public fun register_coin<Coin: copyable>(denom: vector<u8>, decimals: u8) {
+        let sig = create_signer(0x1);
 
-        move_to<Info<Coin>>(account, Info {
-            denom,
-            decimals,
+        if (!exists<Info<Coin>>(0x1)) {
+            move_to<Info<Coin>>(&sig, Info {
+                denom,
+                decimals,
+                owner: 0x1,
+                total_supply: 0,
+                is_token: false
+            });
+        };
 
-            owner: 0x1,
-            total_supply: 0,
-            is_token: false
-        });
+        destroy_signer(sig);
     }
 
     /// check whether sender is 0x1, helper method
-    fun assert_can_register_coin(account: &signer) {
-        assert(Signer::address_of(account) == 0x1, 1);
-    }
+    //fun assert_can_register_coin(account: &signer) {
+    //    assert(Signer::address_of(account) == 0x1, 1);
+    //}
 
     // ..... TOKEN .....
     // - Everyone can register his own token
