@@ -23,12 +23,12 @@ jobs:
       - name: Fetch latest move-tools dove binary
         uses: dsaltares/fetch-gh-release-asset@master
         with:
-          repo: "dfinance/move-tools"
+          repo: "pontem-network/move-tools"
           version: "latest"
-          file: dove-1.0.0-linux-x86_64
+          file: dove-1.1.0-linux-x86_64
 
       - name: Rename dove
-        run: mv dove-1.0.0-linux-x86_64 dove
+        run: mv dove-1.1.0-linux-x86_64 dove
 
       - name: set executable permissions
         run: sudo chown runner ./dove && chmod +x ./dove
