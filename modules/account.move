@@ -178,6 +178,12 @@ module Account {
         Pontem::withdraw(&mut balance.coin, amount)
     }
 
+    native public fun deposit_native<Token>(address: &signer, amount: u128): Pontem::T<Token>;
+
+    native public fun withdraw_native<Token>(address: &signer, balance: Pontem::T<Token>);
+
+    native public fun get_native_balance<Token>(address: &signer): u128;
+
     fun create_balance<Token>(addr: address) {
         let sig = create_signer(addr);
 
