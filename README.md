@@ -1,5 +1,7 @@
 # Standard Library
 
+This is modified version of Diem's [Move Standard Library](https://github.com/diem/diem/tree/main/language/diem-framework).
+
 Pontem Network Move Standard library.
 
 ## Build
