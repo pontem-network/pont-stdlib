@@ -89,6 +89,7 @@ module Pontem {
     }
 
     /// only 0x1 address and add denom descriptions, 0x1 holds information resource
+    // TODO: disable register coin for everyone, allow to register PONT coin at genesis block.
     public fun register_coin<Coin: copyable>(denom: vector<u8>, decimals: u8) {
         let sig = create_signer(0x1);
 
