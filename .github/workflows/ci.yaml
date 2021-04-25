@@ -31,7 +31,7 @@ jobs:
         run: |
           mv dove-1.1.4-linux-x86_64 dove
           sudo chown runner ./dove && chmod +x ./dove
-          echo "Dove: $(dove -V)"
+          echo "Dove: $(./dove -V)"
 
       - name: Test
         run: ./dove test
