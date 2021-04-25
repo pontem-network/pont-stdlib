@@ -25,10 +25,10 @@ jobs:
         with:
           repo: "pontem-network/move-tools"
           version: "latest"
-          file: dove-1.1.0-linux-x86_64
+          file: dove-1.1.4-linux-x86_64
 
       - name: Rename dove
-        run: mv dove-1.1.0-linux-x86_64 dove
+        run: mv dove-1.1.4-linux-x86_64 dove
 
       - name: set executable permissions
         run: sudo chown runner ./dove && chmod +x ./dove
