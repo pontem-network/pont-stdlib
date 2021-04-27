@@ -118,11 +118,12 @@ module Pontem {
     const DECIMALS_MIN : u8 = 0;
     const DECIMALS_MAX : u8 = 18;
 
+    /// Currently can't say we need another resource here.
     /// Token resource. Must be used with custom token type. Which means
     /// that first token creator must deploy a token module which will have
     /// empty type in it which should be then passed as type argument
     /// into Token::initialize() method.
-    resource struct Token<Tok: copyable> {}
+    /// resource struct Token<Tok: copyable> {}
 
     /// This is the event data for TokenCreated event which can only be fired
     /// from this module, from Token::initialize() method.
@@ -140,7 +141,7 @@ module Pontem {
         total_supply: u128,
         decimals: u8,
         denom: vector<u8>
-    ): T<Token<Tok>> {
+    ): T<Tok> {
 
         // check if this token type has never been registered
         assert(!exists<Info<Tok>>(0x1), 1);
@@ -169,7 +170,7 @@ module Pontem {
             }
         );
 
-        T<Token<Tok>> { value: total_supply }
+        T<Tok> { value: total_supply }
     }
 
     /// Created Info resource must be attached to 0x1 address.
