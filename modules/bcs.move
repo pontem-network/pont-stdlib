@@ -5,7 +5,7 @@
 
 address 0x1 {
 
-module LCS {
+module BCS {
     // Return the binary representation of `v` in LCS (Libra Canonical Serialization) format
     native public fun to_bytes<MoveValue>(v: &MoveValue): vector<u8>;
 }
