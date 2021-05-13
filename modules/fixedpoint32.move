@@ -6,7 +6,7 @@ module FixedPoint32 {
     // Define a fixed-point numeric type with 32 fractional bits.
     // This is just a u64 integer but it is wrapped in a struct to
     // make a unique type.
-    struct T { value: u64 }
+    struct T has drop { value: u64 }
 
     // Multiply a u64 integer by a fixed-point number, truncating any
     // fractional part of the product. This will abort if the product
