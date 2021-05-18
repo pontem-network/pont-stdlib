@@ -63,6 +63,12 @@ module Pontem {
         T { value: amount }
     }
 
+    native public fun deposit_native<Token: store>(address: &signer, amount: u128): Pontem::T<Token>;
+
+    native public fun withdraw_native<Token: store>(address: &signer, balance: Pontem::T<Token>);
+
+    native public fun get_native_balance<Token: store>(address: &signer): u128;
+
     /// getter for denom. reads denom information from 0x1 resource
     public fun denom<Coin: store>(): vector<u8> acquires Info {
         *&borrow_global<Info<Coin>>(0x1).denom
