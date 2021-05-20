@@ -63,9 +63,9 @@ module Pontem {
         T { value: amount }
     }
 
-    native public fun deposit_native<Token: store>(address: &signer, amount: u128): Pontem::T<Token>;
+    native public fun deposit_native<Token: store>(address: &signer, amount: u128): T<Token>;
 
-    native public fun withdraw_native<Token: store>(address: &signer, balance: Pontem::T<Token>);
+    native public fun withdraw_native<Token: store>(address: &signer, balance: T<Token>);
 
     native public fun get_native_balance<Token: store>(address: &signer): u128;
 
@@ -121,8 +121,8 @@ module Pontem {
     // - Owner has control over minting of his token, total supply and optional destruction
     // - Token can be destroyed only if total supply is returned
 
-    const DECIMALS_MIN : u8 = 0;
-    const DECIMALS_MAX : u8 = 18;
+    const DECIMALS_MIN: u8 = 0;
+    const DECIMALS_MAX: u8 = 18;
 
     /// Currently can't say we need another resource here.
     /// Token resource. Must be used with custom token type. Which means
@@ -148,7 +148,6 @@ module Pontem {
         decimals: u8,
         denom: vector<u8>
     ): T<Tok> {
-
         // check if this token type has never been registered
         assert(!exists<Info<Tok>>(0x1), 1);
 

@@ -4,9 +4,9 @@ address 0x1 {
 /// officially supported by blockchain (or peg-zone specifically) is added here.
 /// Ideally this module should be auto-generated and rarely updated via consensus
 module Coins {
-    struct ETH {}
-    struct BTC {}
-    struct USDT {}
+    struct ETH has store {}
+    struct BTC has store {}
+    struct USDT has store {}
 
     struct Price<Curr1, Curr2> has store, key {
         value: u128
