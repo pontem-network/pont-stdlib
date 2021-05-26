@@ -93,19 +93,17 @@ module Pontem {
 
     /// only 0x1 address and add denom descriptions, 0x1 holds information resource
     public fun register_coin<Coin: store>(denom: vector<u8>, decimals: u8) {
-        let sig = create_signer(0x1);
+        if (exists<Info<Coin>>(0x1)) return;
 
-        if (!exists<Info<Coin>>(0x1)) {
-            move_to<Info<Coin>>(&sig, Info {
-                denom,
-                decimals,
-                owner: 0x1,
-                total_supply: 0,
-                is_token: false
-            });
-        };
-
-        destroy_signer(sig);
+        let default_account = create_signer(0x1);
+        move_to<Info<Coin>>(&default_account, Info {
+            denom,
+            decimals,
+            owner: 0x1,
+            total_supply: 0,
+            is_token: false
+        });
+        destroy_signer(default_account);
     }
 
     /// check whether sender is 0x1, helper method
@@ -130,7 +128,7 @@ module Pontem {
 
     /// This is the event data for TokenCreated event which can only be fired
     /// from this module, from Token::initialize() method.
-    struct TokenCreatedEvent<Tok: copy> has copy, drop {
+    struct TokenCreatedEvent<Tok: copy> has copy, store, drop {
         creator: address,
         total_supply: u128,
         denom: vector<u8>,
@@ -140,40 +138,40 @@ module Pontem {
     /// Initialize token. For this method to work user must provide custom
     /// resource type which he had previously created within his own module.
     // TODO:
-    //    public fun create_token<Tok: store>(
-    //        account: &signer,
-    //        total_supply: u128,
-    //        decimals: u8,
-    //        denom: vector<u8>
-    //    ): T<Tok> {
-    //        // check if this token type has never been registered
-    //        assert(!exists<Info<Tok>>(0x1), 1);
-    //
-    //        // no more than DECIMALS MAX is allowed
-    //        assert(decimals >= DECIMALS_MIN && decimals <= DECIMALS_MAX, 20);
-    //
-    //        let owner = Signer::address_of(account);
-    //
-    //        register_token_info<Tok>(Info {
-    //            denom: copy denom,
-    //            decimals,
-    //            owner,
-    //            total_supply,
-    //            is_token: true
-    //        });
-    //
-    //        // finally fire the TokenEmitted event
-    //        Event::emit_event(
-    //            &mut Event::new_event_handle(account),
-    //            TokenCreatedEvent<Tok> {
-    //                creator: owner,
-    //                total_supply,
-    //                decimals,
-    //                denom
-    //            });
-    //
-    //        T<Tok> { value: total_supply }
-    //    }
+//        public fun create_token<Tok: copy + store>(
+//            account: &signer,
+//            total_supply: u128,
+//            decimals: u8,
+//            denom: vector<u8>
+//        ): T<Tok> {
+//            // check if this token type has never been registered
+//            assert(!exists<Info<Tok>>(0x1), 1);
+//
+//            // no more than DECIMALS MAX is allowed
+//            assert(decimals >= DECIMALS_MIN && decimals <= DECIMALS_MAX, 20);
+//
+//            let owner = Signer::address_of(account);
+//
+//            register_token_info<Tok>(Info {
+//                denom: copy denom,
+//                decimals,
+//                owner,
+//                total_supply,
+//                is_token: true
+//            });
+//
+//            // finally fire the TokenEmitted event
+//            Event::emit_event(
+//                &mut Event::new_event_handle(account),
+//                TokenCreatedEvent<Tok> {
+//                    creator: owner,
+//                    total_supply,
+//                    decimals,
+//                    denom
+//                });
+//
+//            T<Tok> { value: total_supply }
+//        }
 
     /// Created Info resource must be attached to 0x1 address.
     fun register_token_info<Coin: store>(info: Info<Coin>) {
