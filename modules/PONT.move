@@ -5,6 +5,6 @@ address 0x1 {
 /// ecosystem. Also moved not to be mistaken for peg-zone coin. Same-naming
 /// attack from peg-zone is impossible when XFI coin moved outside of Coins module
 module PONT {
-    struct T has store {}
+    struct T has key, store {}
 }
 }
