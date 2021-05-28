@@ -161,8 +161,8 @@ module Pontem {
 //            });
 //
 //            // finally fire the TokenEmitted event
-//            Event::emit_event(
-//                &mut Event::new_event_handle(account),
+//            Event::emit(
+//                account,
 //                TokenCreatedEvent<Tok> {
 //                    creator: owner,
 //                    total_supply,

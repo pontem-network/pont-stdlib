@@ -3,9 +3,7 @@ address 0x1 {
 /// Deprecated!!!!
 module Coins {
     struct ETH has key, store {}
-
     struct BTC has key, store {}
-
     struct USDT has key, store {}
 
     struct Price<Curr1: key + store, Curr2: key + store> has key, store {
