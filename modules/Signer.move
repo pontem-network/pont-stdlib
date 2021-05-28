@@ -4,7 +4,7 @@ module Signer {
     // Conceptually, you can think of the `signer` as being a resource struct wrapper arround an
     // address
     // ```
-    // resource struct Signer { addr: address }
+    // struct Signer has key, store { addr: address }
     // ```
     // `borrow_address` borrows this inner field
     native public fun borrow_address(s: &signer): &address;
@@ -12,10 +12,6 @@ module Signer {
     // Copies the address of the signer
     public fun address_of(s: &signer): address {
         *borrow_address(s)
-    }
-
-    spec module {
-        native define get_address(account: signer): address;
     }
 }
 }
