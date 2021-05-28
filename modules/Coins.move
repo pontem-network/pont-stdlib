@@ -1,6 +1,5 @@
 address 0x1 {
 
-/// Deprecated!!!!
 module Coins {
     struct ETH has key, store {}
     struct BTC has key, store {}
