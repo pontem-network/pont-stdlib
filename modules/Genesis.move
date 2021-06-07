@@ -21,6 +21,7 @@ module Genesis {
     use 0x1::DiemVersion;
     use 0x1::TransactionFee;
     use 0x1::DiemVMConfig;
+    use 0x1::PONT;
 
     /// Initializes the Diem framework.
     fun initialize(
@@ -48,6 +49,8 @@ module Genesis {
         Diem::initialize(dr_account);
 
         // Currency setup
+        PONT::initialize(dr_account, tc_account);
+
         XUS::initialize(dr_account, tc_account);
 
         XDX::initialize(

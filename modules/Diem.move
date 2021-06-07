@@ -14,6 +14,7 @@ module Diem {
     use 0x1::Roles;
     use 0x1::DiemTimestamp;
     use 0x1::Vector;
+    use 0x1::NativeCurrencies;
 
     /// The `Diem` resource defines the Diem coin for each currency in
     /// Diem. Each "coin" is coupled with a type `CoinType` specifying the
@@ -30,11 +31,11 @@ module Diem {
     /// of coins of `CoinType` currency by the holder of this capability.
     /// This capability is held only either by the `CoreAddresses::TREASURY_COMPLIANCE_ADDRESS()`
     /// account or the `0x1::XDX` module (and `CoreAddresses::DIEM_ROOT_ADDRESS()` in testnet).
-    struct MintCapability<CoinType> has key, store { }
+    struct MintCapability<CoinType> has key, store {}
 
     /// The `BurnCapability` resource defines a capability to allow coins
     /// of `CoinType` currency to be burned by the holder of it.
-    struct BurnCapability<CoinType> has key, store { }
+    struct BurnCapability<CoinType> has key, store {}
 
     /// A `MintEvent` is emitted every time a Diem coin is minted. This
     /// contains the `amount` minted (in base units of the currency being
@@ -1223,6 +1224,23 @@ module Diem {
         aborts_if coin.value > 0 with Errors::INVALID_ARGUMENT;
     }
 
+    public fun register_native_currency<CoinType: store>(
+        dr_account: &signer,
+        to_xdx_exchange_rate: FixedPoint32,
+        scaling_factor: u64,
+        fractional_part: u64,
+        currency_code: vector<u8>,
+        native_key: vector<u8>): (MintCapability<CoinType>, BurnCapability<CoinType>) {
+        NativeCurrencies::register_currency<CoinType>(dr_account, native_key);
+        register_currency<CoinType>(
+            dr_account,
+            to_xdx_exchange_rate,
+            true,
+            scaling_factor,
+            fractional_part,
+            currency_code
+        )
+    }
     ///////////////////////////////////////////////////////////////////////////
     // Definition of Currencies
     ///////////////////////////////////////////////////////////////////////////
