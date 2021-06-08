@@ -38,7 +38,7 @@ module Genesis {
         let dr_account = &dr_account;
         let tc_account = &tc_account;
 
-        DiemAccount::initialize(dr_account, x"00000000000000000000000000000000");
+        DiemAccount::initialize(dr_account, x"");
 
         ChainId::initialize(dr_account, chain_id);
 
