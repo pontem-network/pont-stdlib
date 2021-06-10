@@ -28,9 +28,9 @@ module PONT {
         CoreAddresses::assert_currency_info(dr_account);
         let (mint_cap, burn_cap) = Diem::register_native_currency<PONT>(
             dr_account,
-            FixedPoint32::create_from_rational(1, 1), // exchange rate to XDX TODO?!
-            1000000, // scaling_factor = 10^6
-            100,     // fractional_part = 10^2
+            FixedPoint32::create_from_rational(1, 1), // exchange rate to PONT
+            1000000, // scaling_factor = 10^6 // TODO ?
+            100,     // fractional_part = 10^2 // TODO ?
             b"PONT",
             b"PONT"
         );

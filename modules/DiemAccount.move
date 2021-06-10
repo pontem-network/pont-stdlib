@@ -9,12 +9,10 @@ module DiemAccount {
     use 0x1::CoreAddresses;
     use 0x1::ChainId;
     use 0x1::AccountLimits::{Self, AccountLimitMutationCapability};
-    use 0x1::XUS::XUS;
     use 0x1::DualAttestation;
     use 0x1::Errors;
     use 0x1::Event::{Self, EventHandle};
     use 0x1::Hash;
-    use 0x1::XDX::XDX;
     use 0x1::BCS;
     use 0x1::DiemConfig;
     use 0x1::DiemTimestamp;
@@ -30,6 +28,7 @@ module DiemAccount {
     use 0x1::Diem::{Self, Diem};
     use 0x1::Option::{Self, Option};
     use 0x1::Roles;
+    use 0x1::PONT::PONT;
 
     /// An `address` is a Diem Account iff it has a published DiemAccount resource.
     struct DiemAccount has key {
@@ -167,7 +166,7 @@ module DiemAccount {
     /// Attempted to send funds to an account that does not exist
     const EPAYEE_DOES_NOT_EXIST: u64 = 17;
     /// Attempted to send funds in a currency that the receiving account does not hold.
-    /// e.g., `Diem<XDX>` to an account that exists, but does not have a `Balance<XDX>` resource
+    /// e.g., `Diem<PONT>` to an account that exists, but does not have a `Balance<PONT>` resource
     const EPAYEE_CANT_ACCEPT_CURRENCY_TYPE: u64 = 18;
     /// Tried to withdraw funds in a currency that the account does hold
     const EPAYER_DOESNT_HOLD_CURRENCY: u64 = 19;
@@ -956,11 +955,8 @@ module DiemAccount {
         let new_account_addr = Signer::address_of(new_account);
         add_currency<Token>(new_account);
         if (add_all_currencies) {
-            if (!exists<Balance<XUS>>(new_account_addr)) {
-                add_currency<XUS>(new_account);
-            };
-            if (!exists<Balance<XDX>>(new_account_addr)) {
-                add_currency<XDX>(new_account);
+            if (!exists<Balance<PONT>>(new_account_addr)) {
+                add_currency<PONT>(new_account);
             };
         };
     }
@@ -979,8 +975,8 @@ module DiemAccount {
         aborts_if exists<Balance<Token>>(addr) with Errors::ALREADY_PUBLISHED;
         include add_all_currencies && !exists<Balance<XUS>>(addr)
             ==> Diem::AbortsIfNoCurrency<XUS>;
-        include add_all_currencies && !exists<Balance<XDX>>(addr)
-            ==> Diem::AbortsIfNoCurrency<XDX>;
+        include add_all_currencies && !exists<Balance<PONT>>(addr)
+            ==> Diem::AbortsIfNoCurrency<PONT>;
     }
 
     spec schema AddCurrencyForAccountEnsures<Token> {
@@ -989,8 +985,8 @@ module DiemAccount {
         include AddCurrencyEnsures<Token>;
         include add_all_currencies && !exists<Balance<XUS>>(addr)
             ==> AddCurrencyEnsures<XUS>;
-        include add_all_currencies && !exists<Balance<XDX>>(addr)
-            ==> AddCurrencyEnsures<XDX>;
+        include add_all_currencies && !exists<Balance<PONT>>(addr)
+            ==> AddCurrencyEnsures<PONT>;
     }
 
 
@@ -1657,7 +1653,7 @@ module DiemAccount {
         assert(Roles::has_diem_root_role(&sender), Errors::invalid_argument(PROLOGUE_EINVALID_WRITESET_SENDER));
 
         // Currency code don't matter here as it won't be charged anyway. Gas constants are ommitted.
-        prologue_common<XUS>(
+        prologue_common<PONT>(
             &sender,
             txn_sequence_number,
             txn_public_key,
@@ -1930,7 +1926,7 @@ module DiemAccount {
         assert(Roles::has_diem_root_role(dr_account), Errors::invalid_argument(PROLOGUE_EINVALID_WRITESET_SENDER));
 
         // Currency code don't matter here as it won't be charged anyway.
-        epilogue_common<XUS>(dr_account, txn_sequence_number, 0, 0, 0);
+        epilogue_common<PONT>(dr_account, txn_sequence_number, 0, 0, 0);
         if (should_trigger_reconfiguration) DiemConfig::reconfigure(dr_account)
     }
     spec fun writeset_epilogue {

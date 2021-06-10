@@ -488,13 +488,13 @@ module TreasuryComplianceScripts {
     }
 
     /// # Summary
-    /// Update the dual attestation limit on-chain. Defined in terms of micro-XDX.  The transaction can
+    /// Update the dual attestation limit on-chain. Defined in terms of micro-PONT.  The transaction can
     /// only be sent by the Treasury Compliance account.  After this transaction all inter-VASP
     /// payments over this limit must be checked for dual attestation.
     ///
     /// # Technical Description
     /// Updates the `micro_xdx_limit` field of the `DualAttestation::Limit` resource published under
-    /// `0xA550C18`. The amount is set in micro-XDX.
+    /// `0xA550C18`. The amount is set in micro-PONT.
     ///
     /// # Parameters
     /// | Name                  | Type     | Description                                                                                     |
@@ -526,13 +526,13 @@ module TreasuryComplianceScripts {
     }
 
     /// # Summary
-    /// Update the rough on-chain exchange rate between a specified currency and XDX (as a conversion
-    /// to micro-XDX). The transaction can only be sent by the Treasury Compliance account. After this
+    /// Update the rough on-chain exchange rate between a specified currency and PONT (as a conversion
+    /// to micro-PONT). The transaction can only be sent by the Treasury Compliance account. After this
     /// transaction the updated exchange rate will be used for normalization of gas prices, and for
     /// dual attestation checking.
     ///
     /// # Technical Description
-    /// Updates the on-chain exchange rate from the given `Currency` to micro-XDX.  The exchange rate
+    /// Updates the on-chain exchange rate from the given `Currency` to micro-PONT.  The exchange rate
     /// is given by `new_exchange_rate_numerator/new_exchange_rate_denominator`.
     ///
     /// # Parameters
@@ -541,8 +541,8 @@ module TreasuryComplianceScripts {
     /// | `Currency`                      | Type     | The Move type for the `Currency` whose exchange rate is being updated. `Currency` must be an already-registered currency on-chain. |
     /// | `tc_account`                    | `signer` | The signer of the sending account of this transaction. Must be the Treasury Compliance account.                                    |
     /// | `sliding_nonce`                 | `u64`    | The `sliding_nonce` (see: `SlidingNonce`) to be used for the transaction.                                                          |
-    /// | `new_exchange_rate_numerator`   | `u64`    | The numerator for the new to micro-XDX exchange rate for `Currency`.                                                               |
-    /// | `new_exchange_rate_denominator` | `u64`    | The denominator for the new to micro-XDX exchange rate for `Currency`.                                                             |
+    /// | `new_exchange_rate_numerator`   | `u64`    | The numerator for the new to micro-PONT exchange rate for `Currency`.                                                               |
+    /// | `new_exchange_rate_denominator` | `u64`    | The denominator for the new to micro-PONT exchange rate for `Currency`.                                                             |
     ///
     /// # Common Abort Conditions
     /// | Error Category             | Error Reason                            | Description                                                                                |
@@ -589,9 +589,9 @@ module TreasuryComplianceScripts {
                 new_exchange_rate_numerator,
                 new_exchange_rate_denominator
         );
-        include Diem::UpdateXDXExchangeRateAbortsIf<Currency>;
-        include Diem::UpdateXDXExchangeRateEnsures<Currency>{xdx_exchange_rate: rate};
-        include Diem::UpdateXDXExchangeRateEmits<Currency>{xdx_exchange_rate: rate};
+        include Diem::UpdatePONTExchangeRateAbortsIf<Currency>;
+        include Diem::UpdatePONTExchangeRateEnsures<Currency>{xdx_exchange_rate: rate};
+        include Diem::UpdatePONTExchangeRateEmits<Currency>{xdx_exchange_rate: rate};
 
         aborts_with [check]
             Errors::INVALID_ARGUMENT,

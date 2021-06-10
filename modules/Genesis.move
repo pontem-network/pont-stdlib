@@ -8,9 +8,7 @@ address 0x1 {
 module Genesis {
     use 0x1::AccountFreezing;
     use 0x1::ChainId;
-    use 0x1::XUS;
     use 0x1::DualAttestation;
-    use 0x1::XDX;
     use 0x1::Diem;
     use 0x1::DiemAccount;
     use 0x1::DiemBlock;
@@ -50,13 +48,6 @@ module Genesis {
 
         // Currency setup
         PONT::initialize(dr_account, tc_account);
-
-        XUS::initialize(dr_account, tc_account);
-
-        XDX::initialize(
-            dr_account,
-            tc_account,
-        );
 
         AccountFreezing::initialize(dr_account);
 

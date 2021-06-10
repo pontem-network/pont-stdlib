@@ -21,7 +21,7 @@ module PaymentScripts {
     /// the `payee`'s `DualAttestation::Credential`. Both the `Signer::address_of(payer)` and `amount` fields
     /// in the `metadata_signature` must be BCS-encoded bytes, and `|` denotes concatenation.
     /// The `metadata` and `metadata_signature` parameters are only required if `amount` >=
-    /// `DualAttestation::get_cur_microdiem_limit` XDX and `payer` and `payee` are distinct VASPs.
+    /// `DualAttestation::get_cur_microdiem_limit` PONT and `payer` and `payee` are distinct VASPs.
     /// However, a transaction sender can opt in to dual attestation even when it is not required
     /// (e.g., a DesignatedDealer -> VASP payment) by providing a non-empty `metadata_signature`.
     /// Standardized `metadata` BCS format can be found in `diem_types::transaction::metadata::Metadata`.
@@ -51,8 +51,8 @@ module PaymentScripts {
     /// | `Errors::INVALID_STATE`    | `AccountFreezing::EACCOUNT_FROZEN`               | The `payee` account is frozen.                                                                                                      |
     /// | `Errors::INVALID_ARGUMENT` | `DualAttestation::EMALFORMED_METADATA_SIGNATURE` | `metadata_signature` is not 64 bytes.                                                                                               |
     /// | `Errors::INVALID_ARGUMENT` | `DualAttestation::EINVALID_METADATA_SIGNATURE`   | `metadata_signature` does not verify on the against the `payee'`s `DualAttestation::Credential` `compliance_public_key` public key. |
-    /// | `Errors::LIMIT_EXCEEDED`   | `DiemAccount::EWITHDRAWAL_EXCEEDS_LIMITS`        | `payer` has exceeded its daily withdrawal limits for the backing coins of XDX.                                                      |
-    /// | `Errors::LIMIT_EXCEEDED`   | `DiemAccount::EDEPOSIT_EXCEEDS_LIMITS`           | `payee` has exceeded its daily deposit limits for XDX.                                                                              |
+    /// | `Errors::LIMIT_EXCEEDED`   | `DiemAccount::EWITHDRAWAL_EXCEEDS_LIMITS`        | `payer` has exceeded its daily withdrawal limits for the backing coins of PONT.                                                      |
+    /// | `Errors::LIMIT_EXCEEDED`   | `DiemAccount::EDEPOSIT_EXCEEDS_LIMITS`           | `payee` has exceeded its daily deposit limits for PONT.                                                                              |
     ///
     /// # Related Scripts
     /// * `AccountCreationScripts::create_child_vasp_account`

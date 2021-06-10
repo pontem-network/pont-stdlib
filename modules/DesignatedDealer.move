@@ -7,7 +7,7 @@ module DesignatedDealer {
     use 0x1::Event;
     use 0x1::Roles;
     use 0x1::Signer;
-    use 0x1::XUS::XUS;
+    use 0x1::PONT::PONT;
 
     /// A `DesignatedDealer` always holds this `Dealer` resource regardless of the
     /// currencies it can hold. All `ReceivedMintEvent` events for all
@@ -71,7 +71,7 @@ module DesignatedDealer {
         assert(!exists<Dealer>(Signer::address_of(dd)), Errors::already_published(EDEALER));
         move_to(dd, Dealer { mint_event_handle: Event::new_event_handle<ReceivedMintEvent>(dd) });
         if (add_all_currencies) {
-            add_currency<XUS>(dd, tc_account);
+            add_currency<PONT>(dd, tc_account);
         } else {
             add_currency<CoinType>(dd, tc_account);
         };
@@ -84,14 +84,14 @@ module DesignatedDealer {
         include Roles::AbortsIfNotTreasuryCompliance{account: tc_account};
         include Roles::AbortsIfNotDesignatedDealer{account: dd};
         aborts_if exists<Dealer>(dd_addr) with Errors::ALREADY_PUBLISHED;
-        include if (add_all_currencies) AddCurrencyAbortsIf<XUS>{dd_addr: dd_addr}
+        include if (add_all_currencies) AddCurrencyAbortsIf<PONT>{dd_addr: dd_addr}
                 else AddCurrencyAbortsIf<CoinType>{dd_addr: dd_addr};
 
         modifies global<Dealer>(dd_addr);
         ensures exists<Dealer>(dd_addr);
         modifies global<Event::EventHandleGenerator>(dd_addr);
         modifies global<Diem::PreburnQueue<CoinType>>(dd_addr);
-        modifies global<Diem::PreburnQueue<XUS>>(dd_addr);
+        modifies global<Diem::PreburnQueue<PONT>>(dd_addr);
     }
 
     ///////////////////////////////////////////////////////////////////////////

@@ -30,7 +30,7 @@ module Diem {
     /// The `MintCapability` resource defines a capability to allow minting
     /// of coins of `CoinType` currency by the holder of this capability.
     /// This capability is held only either by the `CoreAddresses::TREASURY_COMPLIANCE_ADDRESS()`
-    /// account or the `0x1::XDX` module (and `CoreAddresses::DIEM_ROOT_ADDRESS()` in testnet).
+    /// account or the `0x1::PONT` module (and `CoreAddresses::DIEM_ROOT_ADDRESS()` in testnet).
     struct MintCapability<CoinType> has key, store {}
 
     /// The `BurnCapability` resource defines a capability to allow coins
@@ -45,7 +45,7 @@ module Diem {
     struct MintEvent has drop, store {
         /// Funds added to the system
         amount: u64,
-        /// ASCII encoded symbol for the coin type (e.g., "XDX")
+        /// ASCII encoded symbol for the coin type (e.g., "PONT")
         currency_code: vector<u8>,
     }
 
@@ -59,7 +59,7 @@ module Diem {
     struct BurnEvent has drop, store {
         /// Funds removed from the system
         amount: u64,
-        /// ASCII encoded symbol for the coin type (e.g., "XDX")
+        /// ASCII encoded symbol for the coin type (e.g., "PONT")
         currency_code: vector<u8>,
         /// Address with the `PreburnQueue` resource that stored the now-burned funds
         preburn_address: address,
@@ -71,7 +71,7 @@ module Diem {
     struct PreburnEvent has drop, store {
         /// The amount of funds waiting to be removed (burned) from the system
         amount: u64,
-        /// ASCII encoded symbol for the coin type (e.g., "XDX")
+        /// ASCII encoded symbol for the coin type (e.g., "PONT")
         currency_code: vector<u8>,
         /// Address with the `PreburnQueue` resource that now holds the funds
         preburn_address: address,
@@ -84,19 +84,19 @@ module Diem {
     struct CancelBurnEvent has drop, store {
         /// The amount of funds returned
         amount: u64,
-        /// ASCII encoded symbol for the coin type (e.g., "XDX")
+        /// ASCII encoded symbol for the coin type (e.g., "PONT")
         currency_code: vector<u8>,
         /// Address of the `PreburnQueue` resource that held the now-returned funds.
         preburn_address: address,
     }
 
-    /// An `ToXDXExchangeRateUpdateEvent` is emitted every time the to-XDX exchange
+    /// An `ToPONTExchangeRateUpdateEvent` is emitted every time the to-PONT exchange
     /// rate for the currency given by `currency_code` is updated.
-    struct ToXDXExchangeRateUpdateEvent has drop, store {
+    struct ToPONTExchangeRateUpdateEvent has drop, store {
         /// The currency code of the currency whose exchange rate was updated.
         currency_code: vector<u8>,
-        /// The new on-chain to-XDX exchange rate between the
-        /// `currency_code` currency and XDX. Represented in conversion
+        /// The new on-chain to-PONT exchange rate between the
+        /// `currency_code` currency and PONT. Represented in conversion
         /// between the (on-chain) base-units for the currency and microdiem.
         new_to_xdx_exchange_rate: u64,
     }
@@ -114,11 +114,11 @@ module Diem {
         total_value: u128,
         /// Value of funds that are in the process of being burned.  Mutable.
         preburn_value: u64,
-        /// The (rough) exchange rate from `CoinType` to `XDX`. Mutable.
+        /// The (rough) exchange rate from `CoinType` to `PONT`. Mutable.
         to_xdx_exchange_rate: FixedPoint32,
         /// Holds whether or not this currency is synthetic (contributes to the
         /// off-chain reserve) or not. An example of such a synthetic
-        ///currency would be the XDX.
+        ///currency would be the PONT.
         is_synthetic: bool,
         /// The scaling factor for the coin (i.e. the amount to divide by
         /// to get to the human-readable representation for this currency).
@@ -129,7 +129,7 @@ module Diem {
         /// 10^2 for `XUS` cents)
         fractional_part: u64,
         /// The code symbol for this `CoinType`. ASCII encoded.
-        /// e.g. for "XDX" this is x"584458". No character limit.
+        /// e.g. for "PONT" this is x"584458". No character limit.
         currency_code: vector<u8>,
         /// Minting of new currency of CoinType is allowed only if this field is true.
         /// We may want to disable the ability to mint further coins of a
@@ -148,7 +148,7 @@ module Diem {
         /// `CoinType`.
         cancel_burn_events: EventHandle<CancelBurnEvent>,
         /// Event stream for emiting exchange rate change events
-        exchange_rate_update_events: EventHandle<ToXDXExchangeRateUpdateEvent>,
+        exchange_rate_update_events: EventHandle<ToPONTExchangeRateUpdateEvent>,
     }
 
     /// The maximum value for `CurrencyInfo.scaling_factor`
@@ -404,7 +404,7 @@ module Diem {
 
     /// Mint a new `Diem` coin of `CoinType` currency worth `value`. The
     /// caller must have a reference to a `MintCapability<CoinType>`. Only
-    /// the treasury compliance account or the `0x1::XDX` module can acquire such a
+    /// the treasury compliance account or the `0x1::PONT` module can acquire such a
     /// reference.
     public fun mint_with_capability<CoinType: store>(
         value: u64,
@@ -543,7 +543,7 @@ module Diem {
 
     /// Create a `Preburn<CoinType>` resource.
     /// This is useful for places where a module needs to be able to burn coins
-    /// outside of a Designated Dealer, e.g., for transaction fees, or for the XDX reserve.
+    /// outside of a Designated Dealer, e.g., for transaction fees, or for the PONT reserve.
     public fun create_preburn<CoinType: store>(
         tc_account: &signer
     ): Preburn<CoinType> {
@@ -1061,7 +1061,7 @@ module Diem {
     }
 
     /// A shortcut for immediately burning a coin. This calls preburn followed by a subsequent burn, and is
-    /// used for administrative burns, like unpacking an XDX coin or charging fees.
+    /// used for administrative burns, like unpacking an PONT coin or charging fees.
     public fun burn_now<CoinType: store>(
         coin: Diem<CoinType>,
         preburn: &mut Preburn<CoinType>,
@@ -1286,7 +1286,7 @@ module Diem {
             burn_events: Event::new_event_handle<BurnEvent>(dr_account),
             preburn_events: Event::new_event_handle<PreburnEvent>(dr_account),
             cancel_burn_events: Event::new_event_handle<CancelBurnEvent>(dr_account),
-            exchange_rate_update_events: Event::new_event_handle<ToXDXExchangeRateUpdateEvent>(dr_account)
+            exchange_rate_update_events: Event::new_event_handle<ToPONTExchangeRateUpdateEvent>(dr_account)
         });
         RegisteredCurrencies::add_currency_code(
             dr_account,
@@ -1386,7 +1386,7 @@ module Diem {
         global<CurrencyInfo<CoinType>>(CoreAddresses::CURRENCY_INFO_ADDRESS()).total_value
     }
 
-    /// Returns the value of the coin in the `FromCoinType` currency in XDX.
+    /// Returns the value of the coin in the `FromCoinType` currency in PONT.
     /// This should only be used where a _rough_ approximation of the exchange
     /// rate is needed.
     public fun approx_xdx_for_value<FromCoinType: store>(from_value: u64): u64
@@ -1406,7 +1406,7 @@ module Diem {
         include FixedPoint32::MultiplyAbortsIf{val: from_value, multiplier: xdx_exchange_rate};
     }
 
-    /// Returns the value of the coin in the `FromCoinType` currency in XDX.
+    /// Returns the value of the coin in the `FromCoinType` currency in PONT.
     /// This should only be used where a rough approximation of the exchange
     /// rate is needed.
     public fun approx_xdx_for_coin<FromCoinType: store>(coin: &Diem<FromCoinType>): u64
@@ -1483,41 +1483,41 @@ module Diem {
         currency_info.to_xdx_exchange_rate = xdx_exchange_rate;
         Event::emit_event(
             &mut currency_info.exchange_rate_update_events,
-            ToXDXExchangeRateUpdateEvent {
+            ToPONTExchangeRateUpdateEvent {
                 currency_code: *&currency_info.currency_code,
                 new_to_xdx_exchange_rate: FixedPoint32::get_raw_value(*&currency_info.to_xdx_exchange_rate),
             }
         );
     }
     spec fun update_xdx_exchange_rate {
-        include UpdateXDXExchangeRateAbortsIf<FromCoinType>;
-        include UpdateXDXExchangeRateEnsures<FromCoinType>;
-        include UpdateXDXExchangeRateEmits<FromCoinType>;
+        include UpdatePONTExchangeRateAbortsIf<FromCoinType>;
+        include UpdatePONTExchangeRateEnsures<FromCoinType>;
+        include UpdatePONTExchangeRateEmits<FromCoinType>;
     }
 
-    spec schema UpdateXDXExchangeRateAbortsIf<FromCoinType> {
+    spec schema UpdatePONTExchangeRateAbortsIf<FromCoinType> {
         tc_account: signer;
         /// Must abort if the account does not have the TreasuryCompliance Role [[H5]][PERMISSION].
         include Roles::AbortsIfNotTreasuryCompliance{account: tc_account};
 
         include AbortsIfNoCurrency<FromCoinType>;
     }
-    spec schema UpdateXDXExchangeRateEnsures<FromCoinType> {
+    spec schema UpdatePONTExchangeRateEnsures<FromCoinType> {
         xdx_exchange_rate: FixedPoint32;
         ensures spec_currency_info<FromCoinType>().to_xdx_exchange_rate == xdx_exchange_rate;
     }
 
-    spec schema UpdateXDXExchangeRateEmits<FromCoinType> {
+    spec schema UpdatePONTExchangeRateEmits<FromCoinType> {
         xdx_exchange_rate: FixedPoint32;
         let handle = global<CurrencyInfo<FromCoinType>>(CoreAddresses::CURRENCY_INFO_ADDRESS()).exchange_rate_update_events;
-        let msg = ToXDXExchangeRateUpdateEvent {
+        let msg = ToPONTExchangeRateUpdateEvent {
             currency_code: global<CurrencyInfo<FromCoinType>>(CoreAddresses::CURRENCY_INFO_ADDRESS()).currency_code,
             new_to_xdx_exchange_rate: FixedPoint32::get_raw_value(xdx_exchange_rate)
         };
         emits msg to handle;
     }
 
-    /// Returns the (rough) exchange rate between `CoinType` and `XDX`
+    /// Returns the (rough) exchange rate between `CoinType` and `PONT`
     public fun xdx_exchange_rate<CoinType: store>(): FixedPoint32
     acquires CurrencyInfo {
         assert_is_currency<CoinType>();
@@ -1810,7 +1810,7 @@ module Diem {
 
     /// ## Update Exchange Rates
     spec schema ExchangeRateRemainsSame<CoinType> {
-        /// The exchange rate to XDX stays constant.
+        /// The exchange rate to PONT stays constant.
         ensures old(spec_is_currency<CoinType>())
             ==> spec_currency_info<CoinType>().to_xdx_exchange_rate
                 == old(spec_currency_info<CoinType>().to_xdx_exchange_rate);
