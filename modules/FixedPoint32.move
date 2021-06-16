@@ -48,6 +48,51 @@ module FixedPoint32 {
         (product as u64)
     }
 
+    /// Because none of our SMT solvers supports non-linear arithmetic with reliable efficiency,
+    /// we specify the concrete semantics of the implementation but use
+    /// an abstracted, simplified semantics for verification of callers. For the verification outcome of
+    /// callers, the actual result of this function is not relevant, as long as the abstraction behaves
+    /// homomorphic. This does not guarantee that arithmetic functions using this code is correct.
+    spec fun multiply_u64 {
+        pragma opaque;
+        include [concrete] ConcreteMultiplyAbortsIf;
+        ensures [concrete] result == spec_concrete_multiply_u64(val, multiplier);
+        include [abstract] MultiplyAbortsIf;
+        ensures [abstract] result == spec_multiply_u64(val, multiplier);
+    }
+    spec schema ConcreteMultiplyAbortsIf {
+        val: num;
+        multiplier: FixedPoint32;
+        aborts_if spec_concrete_multiply_u64(val, multiplier) > MAX_U64 with Errors::LIMIT_EXCEEDED;
+    }
+    spec define spec_concrete_multiply_u64(val: num, multiplier: FixedPoint32): num {
+        (val * multiplier.value) >> 32
+    }
+
+    /// # Abstract Semantics
+
+    spec schema MultiplyAbortsIf {
+        val: num;
+        multiplier: FixedPoint32;
+        aborts_if spec_multiply_u64(val, multiplier) > MAX_U64 with Errors::LIMIT_EXCEEDED;
+    }
+
+    spec define spec_multiply_u64(val: num, multiplier: FixedPoint32): num {
+        if (multiplier.value == 0)
+            // Zero value
+            0
+        else if (multiplier.value == 1)
+            // 1.0
+            val
+        else if (multiplier.value == 2)
+            // 0.5
+            val / 2
+        else
+            // overflow
+            MAX_U64 + 1
+    }
+
+
     /// Divide a u64 integer by a fixed-point number, truncating any
     /// fractional part of the quotient. This will abort if the divisor
     /// is zero or if the quotient overflows.
@@ -63,6 +108,44 @@ module FixedPoint32 {
         // the value may be too large, which will cause the cast to fail
         // with an arithmetic error.
         (quotient as u64)
+    }
+
+    /// We specify the concrete semantics of the implementation but use
+    /// an abstracted, simplified semantics for verification of callers.
+    spec fun divide_u64 {
+        pragma opaque;
+        include [concrete] ConcreteDivideAbortsIf;
+        ensures [concrete] result == spec_concrete_divide_u64(val, divisor);
+        include [abstract] DivideAbortsIf;
+        ensures [abstract] result == spec_divide_u64(val, divisor);
+    }
+    spec schema ConcreteDivideAbortsIf {
+        val: num;
+        divisor: FixedPoint32;
+        aborts_if divisor.value == 0 with Errors::INVALID_ARGUMENT;
+        aborts_if spec_concrete_divide_u64(val, divisor) > MAX_U64 with Errors::LIMIT_EXCEEDED;
+    }
+    spec define spec_concrete_divide_u64(val: num, divisor: FixedPoint32): num {
+        (val << 32) / divisor.value
+    }
+
+    /// # Abstract Semantics
+
+    spec schema DivideAbortsIf {
+        val: num;
+        divisor: FixedPoint32;
+        aborts_if divisor.value == 0 with Errors::INVALID_ARGUMENT;
+        aborts_if spec_divide_u64(val, divisor) > MAX_U64 with Errors::LIMIT_EXCEEDED;
+    }
+    spec define spec_divide_u64(val: num, divisor: FixedPoint32): num {
+        if (divisor.value == 1)
+            // 1.0
+            val
+        else if (divisor.value == 2)
+            // 0.5
+            val * 2
+        else
+            MAX_U64 + 1
     }
 
     /// Create a fixed-point value from a rational number specified by its
@@ -90,10 +173,54 @@ module FixedPoint32 {
         assert(quotient <= MAX_U64, Errors::limit_exceeded(ERATIO_OUT_OF_RANGE));
         FixedPoint32 { value: (quotient as u64) }
     }
+    spec fun create_from_rational {
+        pragma opaque;
+        include [concrete] ConcreteCreateFromRationalAbortsIf;
+        ensures [concrete] result == spec_concrete_create_from_rational(numerator, denominator);
+        include [abstract] CreateFromRationalAbortsIf;
+        ensures [abstract] result == spec_create_from_rational(numerator, denominator);
+    }
+    spec schema ConcreteCreateFromRationalAbortsIf {
+        numerator: u64;
+        denominator: u64;
+        let scaled_numerator = numerator << 64;
+        let scaled_denominator = denominator << 32;
+        let quotient = scaled_numerator / scaled_denominator;
+        aborts_if scaled_denominator == 0 with Errors::INVALID_ARGUMENT;
+        aborts_if quotient == 0 && scaled_numerator != 0 with Errors::INVALID_ARGUMENT;
+        aborts_if quotient > MAX_U64 with Errors::LIMIT_EXCEEDED;
+    }
+    spec define spec_concrete_create_from_rational(numerator: num, denominator: num): FixedPoint32 {
+        FixedPoint32{value: (numerator << 64) / (denominator << 32)}
+    }
+
+    /// # Abstract Semantics
+
+    spec schema CreateFromRationalAbortsIf {
+        /// This is currently identical to the concrete semantics.
+        include ConcreteCreateFromRationalAbortsIf;
+    }
+
+    /// Abstract to either 0.5 or 1. This assumes validation of numerator and denominator has
+    /// succeeded.
+    spec define spec_create_from_rational(numerator: num, denominator: num): FixedPoint32 {
+        if (numerator == denominator)
+            // 1.0
+            FixedPoint32{value: 1}
+        else
+            // 0.5
+            FixedPoint32{value: 2}
+    }
 
     /// Create a fixedpoint value from a raw value.
     public fun create_from_raw_value(value: u64): FixedPoint32 {
         FixedPoint32 { value }
+    }
+    spec fun create_from_raw_value {
+        pragma opaque;
+        aborts_if false;
+        ensures [concrete] result.value == value;
+        ensures [abstract] result.value == 2;
     }
 
     /// Accessor for the raw u64 value. Other less common operations, such as
@@ -107,6 +234,15 @@ module FixedPoint32 {
     public fun is_zero(num: FixedPoint32): bool {
         num.value == 0
     }
+
+    // **************** SPECIFICATIONS ****************
+
+    spec module {} // switch documentation context to module level
+
+    spec module {
+        pragma aborts_if_is_strict;
+    }
+
 }
 
 }

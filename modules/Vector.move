@@ -50,6 +50,17 @@ module Vector {
         push_back(&mut v, e);
         v
     }
+    spec fun singleton {
+        // TODO: when using opaque here, we get verification errors.
+        // pragma opaque;
+        aborts_if false;
+        ensures result == spec_singleton(e);
+    }
+    spec module {
+        define spec_singleton<Element>(e: Element): vector<Element> {
+            singleton_vector(e)
+        }
+    }
 
     /// Reverses the order of the elements in the vector `v` in place.
     public fun reverse<Element>(v: &mut vector<Element>) {
@@ -64,6 +75,10 @@ module Vector {
             back_index = back_index - 1;
         }
     }
+    spec fun reverse {
+        pragma intrinsic = true;
+    }
+
 
     /// Pushes all of the elements of the `other` vector into the `lhs` vector.
     public fun append<Element>(lhs: &mut vector<Element>, other: vector<Element>) {
@@ -71,6 +86,13 @@ module Vector {
         while (!is_empty(&other)) push_back(lhs, pop_back(&mut other));
         destroy_empty(other);
     }
+    spec fun append {
+        pragma intrinsic = true;
+    }
+    spec fun is_empty {
+        pragma intrinsic = true;
+    }
+
 
     /// Return `true` if the vector `v` has no elements and `false` otherwise.
     public fun is_empty<Element>(v: &vector<Element>): bool {
@@ -87,6 +109,9 @@ module Vector {
         };
         false
     }
+    spec fun contains {
+        pragma intrinsic = true;
+    }
 
     /// Return `(true, i)` if `e` is in the vector `v` at index `i`.
     /// Otherwise, returns `(false, 0)`.
@@ -98,6 +123,9 @@ module Vector {
             i = i + 1;
         };
         (false, 0)
+    }
+    spec fun index_of {
+        pragma intrinsic = true;
     }
 
     /// Remove the `i`th element of the vector `v`, shifting all subsequent elements.
@@ -112,6 +140,9 @@ module Vector {
         while (i < len) swap(v, i, { i = i + 1; i });
         pop_back(v)
     }
+    spec fun remove {
+        pragma intrinsic = true;
+    }
 
     /// Swap the `i`th element of the vector `v` with the last element and then pop the vector.
     /// This is O(1), but does not preserve ordering of elements in the vector.
@@ -121,5 +152,50 @@ module Vector {
         swap(v, i, last_idx);
         pop_back(v)
     }
+    spec fun swap_remove {
+        pragma intrinsic = true;
+    }
+
+    // =================================================================
+    // Module Specification
+
+    spec module {} // Switch to module documentation context
+
+    /// # Helper Functions
+
+    spec module {
+        /// Check whether a vector contains an element.
+        define spec_contains<Element>(v: vector<Element>, e: Element): bool {
+            exists x in v: x == e
+        }
+
+        /// Check if `v1` is equal to the result of adding `e` at the end of `v2`
+        define eq_push_back<Element>(v1: vector<Element>, v2: vector<Element>, e: Element): bool {
+            len(v1) == len(v2) + 1 &&
+            v1[len(v1)-1] == e &&
+            v1[0..len(v1)-1] == v2[0..len(v2)]
+        }
+
+        /// Check if `v` is equal to the result of concatenating `v1` and `v2`
+        define eq_append<Element>(v: vector<Element>, v1: vector<Element>, v2: vector<Element>): bool {
+            len(v) == len(v1) + len(v2) &&
+            v[0..len(v1)] == v1 &&
+            v[len(v1)..len(v)] == v2
+        }
+
+        /// Check `v1` is equal to the result of removing the first element of `v2`
+        define eq_pop_front<Element>(v1: vector<Element>, v2: vector<Element>): bool {
+            len(v1) + 1 == len(v2) &&
+            v1 == v2[1..len(v2)]
+        }
+
+        /// Check that `v1` is equal to the result of removing the element at index `i` from `v2`.
+        define eq_remove_elem_at_index<Element>(i: u64, v1: vector<Element>, v2: vector<Element>): bool {
+            len(v1) + 1 == len(v2) &&
+            v1[0..i] == v2[0..i] &&
+            v1[i..len(v1)] == v2[i + 1..len(v2)]
+        }
+    }
+
 }
 }

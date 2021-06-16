@@ -6,5 +6,14 @@ address 0x1 {
 module BCS {
     /// Return the binary representation of `v` in BCS (Binary Canonical Serialization) format
     native public fun to_bytes<MoveValue>(v: &MoveValue): vector<u8>;
+
+    // ==============================
+    // Module Specification
+    spec module {} // switch to module documentation context
+
+    spec module {
+        /// Native function which is defined in the prover's prelude.
+        native define serialize<MoveValue>(v: &MoveValue): vector<u8>;
+    }
 }
 }
