@@ -14,22 +14,19 @@ jobs:
         shell: bash
 
     steps:
+      - name: Cache
+        uses: actions/cache@v2
+        with:
+          path: ~/.dove
+          key: ${{ matrix.cfg.os }}-dove
+      - name: Fetch latest move-tools dove binary
+        uses: pontem-network/get-dove@main
+        with:
+          version: 1.2.0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Fetch latest move-tools dove binary
-        uses: dsaltares/fetch-gh-release-asset@0.06
-        with:
-          repo: "pontem-network/move-tools"
-          version: "tags/1.2.0"
-          file: dove-1.2.0-linux-x86_64
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Prepare dove
-        run: |
-          mv dove-1.2.0-linux-x86_64 dove
-          sudo chown runner ./dove && chmod +x ./dove
-          echo "Dove: $(./dove -V)"
-
       - name: Test
-        run: ./dove test
+        run: dove test
