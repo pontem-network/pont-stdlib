@@ -1160,7 +1160,6 @@ module DiemAccount {
         auth_key_prefix: vector<u8>;
         include DiemTimestamp::AbortsIfNotGenesis;
         include Roles::GrantRole{addr: CoreAddresses::DIEM_ROOT_ADDRESS(), role_id: Roles::DIEM_ROOT_ROLE_ID};
-            with Errors::ALREADY_PUBLISHED;
         aborts_if exists<AccountOperationsCapability>(CoreAddresses::DIEM_ROOT_ADDRESS())
             with Errors::ALREADY_PUBLISHED;
         aborts_if exists<DiemWriteSetManager>(CoreAddresses::DIEM_ROOT_ADDRESS())

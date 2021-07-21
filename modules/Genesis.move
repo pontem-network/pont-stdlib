@@ -11,7 +11,6 @@ module Genesis {
     use 0x1::Diem;
     use 0x1::DiemAccount;
     use 0x1::DiemBlock;
-    use 0x1::DiemConfig;
     use 0x1::DiemTimestamp;
     use 0x1::PONT;
 
@@ -29,9 +28,6 @@ module Genesis {
         DiemAccount::initialize(dr_account, x"");
 
         ChainId::initialize(dr_account, chain_id);
-
-        // On-chain config setup
-        DiemConfig::initialize(dr_account);
 
         // Currency setup
         Diem::initialize(dr_account);

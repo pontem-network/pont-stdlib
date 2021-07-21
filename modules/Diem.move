@@ -9,7 +9,6 @@ module Diem {
     use 0x1::Errors;
     use 0x1::Event::{Self, EventHandle};
     use 0x1::FixedPoint32::{Self, FixedPoint32};
-    use 0x1::RegisteredCurrencies;
     use 0x1::Signer;
     use 0x1::Roles;
     use 0x1::DiemTimestamp;
@@ -252,13 +251,10 @@ module Diem {
         DiemTimestamp::assert_genesis();
         // Operational constraint
         CoreAddresses::assert_diem_root(dr_account);
-        RegisteredCurrencies::initialize(dr_account);
     }
     spec fun initialize {
         include DiemTimestamp::AbortsIfNotGenesis;
         include CoreAddresses::AbortsIfNotDiemRoot{account: dr_account};
-        include RegisteredCurrencies::InitializeAbortsIf;
-        include RegisteredCurrencies::InitializeEnsures;
     }
 
     /// Publishes the `BurnCapability` `cap` for the `CoinType` currency under `account`. `CoinType`
@@ -1288,10 +1284,6 @@ module Diem {
             cancel_burn_events: Event::new_event_handle<CancelBurnEvent>(dr_account),
             exchange_rate_update_events: Event::new_event_handle<ToPONTExchangeRateUpdateEvent>(dr_account)
         });
-        RegisteredCurrencies::add_currency_code(
-            dr_account,
-            currency_code,
-        );
         (MintCapability<CoinType>{}, BurnCapability<CoinType>{})
     }
     spec fun register_currency {
@@ -1311,7 +1303,6 @@ module Diem {
         include CoreAddresses::AbortsIfNotCurrencyInfo{account: dr_account};
         aborts_if exists<CurrencyInfo<CoinType>>(Signer::spec_address_of(dr_account))
             with Errors::ALREADY_PUBLISHED;
-        include RegisteredCurrencies::AddCurrencyCodeAbortsIf;
     }
 
     spec schema RegisterCurrencyEnsures<CoinType> {
