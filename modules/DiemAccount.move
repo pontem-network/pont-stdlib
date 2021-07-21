@@ -5,7 +5,6 @@ address 0x1 {
 /// before and after every transaction.
 
 module DiemAccount {
-    use 0x1::AccountFreezing;
     use 0x1::CoreAddresses;
     use 0x1::AccountLimits::{Self, AccountLimitMutationCapability};
     use 0x1::DualAttestation;
@@ -15,8 +14,6 @@ module DiemAccount {
     use 0x1::DiemTimestamp;
     use 0x1::Signer;
     use 0x1::SlidingNonce;
-    use 0x1::ValidatorConfig;
-    use 0x1::ValidatorOperatorConfig;
     use 0x1::VASP;
     use 0x1::Vector;
     use 0x1::DesignatedDealer;
@@ -214,8 +211,6 @@ module DiemAccount {
         include CoreAddresses::AbortsIfNotDiemRoot{account: dr_account};
         include CreateDiemRootAccountAbortsIf{auth_key_prefix: dummy_auth_key_prefix};
         include CreateTreasuryComplianceAccountAbortsIf{auth_key_prefix: dummy_auth_key_prefix};
-        aborts_if exists<AccountFreezing::FreezingBit>(CoreAddresses::TREASURY_COMPLIANCE_ADDRESS())
-            with Errors::ALREADY_PUBLISHED;
 
         // modifies and ensures needed to make this function opaque.
         include CreateDiemRootAccountModifies;
@@ -283,7 +278,6 @@ module DiemAccount {
         metadata_signature: vector<u8>
     ) acquires DiemAccount, Balance, AccountOperationsCapability {
         DiemTimestamp::assert_operating();
-        AccountFreezing::assert_not_frozen(payee);
 
         // Check that the `to_deposit` coin is non-zero
         let deposit_value = Diem::value(&to_deposit);
@@ -356,7 +350,6 @@ module DiemAccount {
         metadata_signature: vector<u8>;
         metadata: vector<u8>;
         include DepositAbortsIfRestricted<Token>;
-        include AccountFreezing::AbortsIfFrozen{account: payee};
         aborts_if !exists<Balance<Token>>(payee) with Errors::INVALID_ARGUMENT;
         aborts_if !exists_at(payee) with Errors::NOT_PUBLISHED;
     }
@@ -514,7 +507,6 @@ module DiemAccount {
         amount: u64
     ): Diem<Token> acquires AccountOperationsCapability {
         DiemTimestamp::assert_operating();
-        AccountFreezing::assert_not_frozen(payer);
         // Make sure that this withdrawal is compliant with the limits on
         // the account if it's a inter-VASP transfer,
         if (should_track_limits_for_account<Token>(payer, payee, true)) {
@@ -559,7 +551,6 @@ module DiemAccount {
           balance: Balance<Token>;
           amount: u64;
           include DiemTimestamp::AbortsIfNotOperating;
-          include AccountFreezing::AbortsIfFrozen{account: payer};
           aborts_if balance.coin.value < amount with Errors::LIMIT_EXCEEDED;
     }
     spec schema WithdrawFromBalanceEnsures<Token> {
@@ -1009,7 +1000,6 @@ module DiemAccount {
         let authentication_key = create_authentication_key(&new_account, auth_key_prefix);
 
         // Publish AccountFreezing::FreezingBit (initially not frozen)
-        AccountFreezing::create(&new_account);
         // The AccountOperationsCapability is published during Genesis, so it should
         // always exist.  This is a sanity check.
         assert(
@@ -1047,14 +1037,12 @@ module DiemAccount {
         let new_account_addr = Signer::address_of(new_account);
         modifies global<DiemAccount>(new_account_addr);
         modifies global<Event::EventHandleGenerator>(new_account_addr);
-        modifies global<AccountFreezing::FreezingBit>(new_account_addr);
         modifies global<AccountOperationsCapability>(CoreAddresses::DIEM_ROOT_ADDRESS());
         ensures exists<AccountOperationsCapability>(CoreAddresses::DIEM_ROOT_ADDRESS());
         // Next requires is needed to prove invariant
         requires exists<Roles::RoleId>(new_account_addr);
         include MakeAccountAbortsIf{addr: new_account_addr};
         ensures exists_at(new_account_addr);
-        ensures AccountFreezing::spec_account_is_not_frozen(new_account_addr);
         let account_ops_cap = global<AccountOperationsCapability>(CoreAddresses::DIEM_ROOT_ADDRESS());
         ensures account_ops_cap == update_field(old(account_ops_cap), creation_events, account_ops_cap.creation_events);
         ensures spec_holds_own_key_rotation_cap(new_account_addr);
@@ -1066,7 +1054,6 @@ module DiemAccount {
         auth_key_prefix: vector<u8>;
         aborts_if addr == CoreAddresses::VM_RESERVED_ADDRESS() with Errors::INVALID_ARGUMENT;
         aborts_if addr == CoreAddresses::CORE_CODE_ADDRESS() with Errors::INVALID_ARGUMENT;
-        aborts_if exists<AccountFreezing::FreezingBit>(addr) with Errors::ALREADY_PUBLISHED;
         // There is an invariant below that says that there is always an AccountOperationsCapability
         // after Genesis, so this can only abort during Genesis.
         aborts_if DiemTimestamp::is_genesis()
@@ -1171,7 +1158,6 @@ module DiemAccount {
         modifies global<DiemWriteSetManager>(dr_addr);
         modifies global<SlidingNonce::SlidingNonce>(dr_addr);
         modifies global<Roles::RoleId>(dr_addr);
-        modifies global<AccountFreezing::FreezingBit>(dr_addr);
     }
     spec schema CreateDiemRootAccountAbortsIf {
         auth_key_prefix: vector<u8>;
@@ -1183,8 +1169,6 @@ module DiemAccount {
             with Errors::ALREADY_PUBLISHED;
         aborts_if exists<DiemWriteSetManager>(CoreAddresses::DIEM_ROOT_ADDRESS())
             with Errors::ALREADY_PUBLISHED;
-        aborts_if exists<AccountFreezing::FreezingBit>(CoreAddresses::DIEM_ROOT_ADDRESS())
-            with Errors::ALREADY_PUBLISHED;
         include CreateAuthenticationKeyAbortsIf;
     }
     spec schema CreateDiemRootAccountEnsures {
@@ -1194,7 +1178,6 @@ module DiemAccount {
         ensures exists<SlidingNonce::SlidingNonce>(dr_addr);
         ensures Roles::spec_has_diem_root_role_addr(dr_addr);
         ensures exists_at(dr_addr);
-        ensures AccountFreezing::spec_account_is_not_frozen(dr_addr);
         ensures spec_holds_own_key_rotation_cap(dr_addr);
         ensures spec_holds_own_withdraw_cap(dr_addr);
     }
@@ -1233,7 +1216,6 @@ module DiemAccount {
         modifies global<DiemAccount>(tc_addr);
         modifies global<SlidingNonce::SlidingNonce>(tc_addr);
         modifies global<Roles::RoleId>(tc_addr);
-        modifies global<AccountFreezing::FreezingBit>(tc_addr);
         modifies global<AccountOperationsCapability>(CoreAddresses::DIEM_ROOT_ADDRESS());
         ensures exists<AccountOperationsCapability>(CoreAddresses::DIEM_ROOT_ADDRESS());
         modifies global<Event::EventHandleGenerator>(CoreAddresses::TREASURY_COMPLIANCE_ADDRESS());
@@ -1251,7 +1233,6 @@ module DiemAccount {
         ensures Roles::spec_has_treasury_compliance_role_addr(tc_addr);
         ensures exists_at(tc_addr);
         ensures exists<SlidingNonce::SlidingNonce>(tc_addr);
-        ensures AccountFreezing::spec_account_is_not_frozen(tc_addr);
         ensures spec_holds_own_key_rotation_cap(tc_addr);
         ensures spec_holds_own_withdraw_cap(tc_addr);
     }
@@ -1522,84 +1503,6 @@ module DiemAccount {
         exists<DiemAccount>(check_addr)
     }
 
-    /// Create a Validator account
-    public fun create_validator_account(
-        dr_account: &signer,
-        new_account_address: address,
-        auth_key_prefix: vector<u8>,
-        human_name: vector<u8>,
-    ) acquires AccountOperationsCapability {
-        let new_account = create_signer(new_account_address);
-        // The dr_account account is verified to have the diem root role in `Roles::new_validator_role`
-        Roles::new_validator_role(dr_account, &new_account);
-        Event::publish_generator(&new_account);
-        ValidatorConfig::publish(&new_account, dr_account, human_name);
-        make_account(new_account, auth_key_prefix)
-    }
-
-    spec fun create_validator_account {
-        include CreateValidatorAccountAbortsIf;
-        include CreateValidatorAccountEnsures;
-        include MakeAccountEmits;
-    }
-
-    spec schema CreateValidatorAccountAbortsIf {
-        dr_account: signer;
-        new_account_address: address;
-        // from `Roles::new_validator_role`
-        include Roles::AbortsIfNotDiemRoot{account: dr_account};
-        include MakeAccountAbortsIf{addr: new_account_address};
-        // from `ValidatorConfig::publish`
-        include DiemTimestamp::AbortsIfNotOperating;
-        aborts_if ValidatorConfig::exists_config(new_account_address) with Errors::ALREADY_PUBLISHED;
-    }
-
-    spec schema CreateValidatorAccountEnsures {
-        new_account_address: address;
-        // Note: `Roles::GrantRole` has both ensure's and aborts_if's.
-        include Roles::GrantRole{addr: new_account_address, role_id: Roles::VALIDATOR_ROLE_ID};
-        ensures exists_at(new_account_address);
-        ensures ValidatorConfig::exists_config(new_account_address);
-    }
-
-    /// Create a Validator Operator account
-    public fun create_validator_operator_account(
-        dr_account: &signer,
-        new_account_address: address,
-        auth_key_prefix: vector<u8>,
-        human_name: vector<u8>,
-    ) acquires AccountOperationsCapability {
-        let new_account = create_signer(new_account_address);
-        // The dr_account is verified to have the diem root role in `Roles::new_validator_operator_role`
-        Roles::new_validator_operator_role(dr_account, &new_account);
-        Event::publish_generator(&new_account);
-        ValidatorOperatorConfig::publish(&new_account, dr_account, human_name);
-        make_account(new_account, auth_key_prefix)
-    }
-
-    spec fun create_validator_operator_account {
-        include CreateValidatorOperatorAccountAbortsIf;
-        include CreateValidatorOperatorAccountEnsures;
-    }
-
-    spec schema CreateValidatorOperatorAccountAbortsIf {
-        dr_account: signer;
-        new_account_address: address;
-        // from `Roles::new_validator_operator_role`
-        include Roles::AbortsIfNotDiemRoot{account: dr_account};
-        include MakeAccountAbortsIf{addr: new_account_address};
-        // from `ValidatorConfig::publish`
-        include DiemTimestamp::AbortsIfNotOperating;
-        aborts_if ValidatorOperatorConfig::has_validator_operator_config(new_account_address) with Errors::ALREADY_PUBLISHED;
-    }
-
-    spec schema CreateValidatorOperatorAccountEnsures {
-        new_account_address: address;
-        include Roles::GrantRole{addr: new_account_address, role_id: Roles::VALIDATOR_OPERATOR_ROLE_ID};
-        ensures exists_at(new_account_address);
-        ensures ValidatorOperatorConfig::has_validator_operator_config(new_account_address);
-    }
-
     // ****************** Module Specifications *******************
     spec module {} // switch documentation context back to module level
 
@@ -1741,9 +1644,6 @@ module DiemAccount {
         invariant [global] forall addr: address where exists<DualAttestation::Credential>(addr):
             Roles::spec_has_designated_dealer_role_addr(addr)
             || Roles::spec_has_parent_VASP_role_addr(addr);
-
-        /// Every address that has a published account has a published FreezingBit
-        invariant [global] forall addr: address where exists_at(addr): exists<AccountFreezing::FreezingBit>(addr);
     }
 
     /// # Helper Functions and Schemas
@@ -1810,7 +1710,7 @@ module DiemAccount {
 
     spec define prologue_guarantees(sender: signer) : bool {
         let addr = Signer::spec_address_of(sender);
-        DiemTimestamp::is_operating() && exists_at(addr) && !AccountFreezing::account_is_frozen(addr)
+        DiemTimestamp::is_operating() && exists_at(addr)
     }
 
     /// Used in transaction script to specify properties checked by the prologue.
