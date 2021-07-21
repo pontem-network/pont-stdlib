@@ -493,13 +493,7 @@ module Diem {
         let preburn_queue = &mut borrow_global_mut<PreburnQueue<CoinType>>(preburn_address).preburns;
         let queue_length = Vector::length(preburn_queue);
 
-        while ({
-            spec {
-                assert index <= queue_length;
-                assert forall j in 0..index: preburn_queue[j].preburn.to_burn.value != amount;
-            };
-            (index < queue_length)
-        }) {
+        while (index < queue_length) {
             let elem = Vector::borrow(preburn_queue, index);
             if (value(&elem.preburn.to_burn) == amount) {
                 let preburn = Vector::remove(preburn_queue, index);
