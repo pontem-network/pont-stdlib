@@ -71,53 +71,16 @@ module DiemTimestamp {
         };
         global_timer.microseconds = timestamp;
     }
-    spec fun update_global_time {
-        pragma opaque;
-        modifies global<CurrentTimeMicroseconds>(CoreAddresses::DIEM_ROOT_ADDRESS());
-
-        let now = spec_now_microseconds();
-
-        /// Conditions unique for abstract and concrete version of this function.
-        include AbortsIfNotOperating;
-        include CoreAddresses::AbortsIfNotVM;
-        ensures now == timestamp; // refers to the `now` in the post state
-
-        /// Conditions we only check for the implementation, but do not pass to the caller.
-        aborts_if [concrete]
-            (if (proposer == CoreAddresses::VM_RESERVED_ADDRESS()) {
-                now != timestamp // Refers to the now in the pre state
-             } else  {
-                now >= timestamp
-             }
-            )
-            with Errors::INVALID_ARGUMENT;
-    }
 
     /// Gets the current time in microseconds.
     public fun now_microseconds(): u64 acquires CurrentTimeMicroseconds {
         assert_operating();
         borrow_global<CurrentTimeMicroseconds>(CoreAddresses::DIEM_ROOT_ADDRESS()).microseconds
     }
-    spec fun now_microseconds {
-        pragma opaque;
-        include AbortsIfNotOperating;
-        ensures result == spec_now_microseconds();
-    }
-    spec define spec_now_microseconds(): u64 {
-        global<CurrentTimeMicroseconds>(CoreAddresses::DIEM_ROOT_ADDRESS()).microseconds
-    }
 
     /// Gets the current time in seconds.
     public fun now_seconds(): u64 acquires CurrentTimeMicroseconds {
         now_microseconds() / MICRO_CONVERSION_FACTOR
-    }
-    spec fun now_seconds {
-        pragma opaque;
-        include AbortsIfNotOperating;
-        ensures result == spec_now_microseconds() /  MICRO_CONVERSION_FACTOR;
-    }
-    spec define spec_now_seconds(): u64 {
-        global<CurrentTimeMicroseconds>(CoreAddresses::DIEM_ROOT_ADDRESS()).microseconds / MICRO_CONVERSION_FACTOR
     }
 
     /// Helper function to determine if Diem is in genesis state.
@@ -128,15 +91,6 @@ module DiemTimestamp {
     /// Helper function to assert genesis state.
     public fun assert_genesis() {
         assert(is_genesis(), Errors::invalid_state(ENOT_GENESIS));
-    }
-    spec fun assert_genesis {
-        pragma opaque = true;
-        include AbortsIfNotGenesis;
-    }
-
-    /// Helper schema to specify that a function aborts if not in genesis.
-    spec schema AbortsIfNotGenesis {
-        aborts_if !is_genesis() with Errors::INVALID_STATE;
     }
 
     /// Helper function to determine if Diem is operating. This is the same as `!is_genesis()` and is provided
@@ -149,35 +103,5 @@ module DiemTimestamp {
     public fun assert_operating() {
         assert(is_operating(), Errors::invalid_state(ENOT_OPERATING));
     }
-    spec fun assert_operating {
-        pragma opaque = true;
-        include AbortsIfNotOperating;
-    }
-
-    /// Helper schema to specify that a function aborts if not operating.
-    spec schema AbortsIfNotOperating {
-        aborts_if !is_operating() with Errors::INVALID_STATE;
-    }
-
-    // ====================
-    // Module Specification
-    spec module {} // switch documentation context to module level
-
-    spec module {
-        /// After genesis, `CurrentTimeMicroseconds` is published forever
-        invariant [global] is_operating() ==> exists<CurrentTimeMicroseconds>(CoreAddresses::DIEM_ROOT_ADDRESS());
-
-        /// After genesis, time progresses monotonically.
-        invariant update [global]
-            old(is_operating()) ==> old(spec_now_microseconds()) <= spec_now_microseconds();
-    }
-
-    spec module {
-        /// All functions which do not have an `aborts_if` specification in this module are implicitly declared
-        /// to never abort.
-        pragma aborts_if_is_strict;
-    }
-
-
 }
 }

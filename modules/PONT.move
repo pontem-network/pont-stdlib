@@ -9,7 +9,7 @@ module PONT {
     use 0x1::CoreAddresses;
     use 0x1::FixedPoint32;
     use 0x1::Diem;
-    use 0x1::DiemTimestamp;
+    use 0x1::Time;
 
     struct PONT has key, store {}
 
@@ -23,7 +23,7 @@ module PONT {
         dr_account: &signer,
         tc_account: &signer,
     ) {
-        DiemTimestamp::assert_genesis();
+        Time::assert_genesis();
         // Operational constraint
         CoreAddresses::assert_currency_info(dr_account);
         let (mint_cap, burn_cap) = Diem::register_native_currency<PONT>(

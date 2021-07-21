@@ -84,60 +84,6 @@ module AccountCreationScripts {
         };
     }
 
-    spec fun create_child_vasp_account {
-        use 0x1::Signer;
-        use 0x1::Errors;
-        use 0x1::Roles;
-
-        include DiemAccount::TransactionChecks{sender: parent_vasp}; // properties checked by the prologue.
-        let parent_addr = Signer::spec_address_of(parent_vasp);
-        let parent_cap = DiemAccount::spec_get_withdraw_cap(parent_addr);
-        include DiemAccount::CreateChildVASPAccountAbortsIf<CoinType>{
-            parent: parent_vasp, new_account_address: child_address};
-        aborts_if child_initial_balance > max_u64() with Errors::LIMIT_EXCEEDED;
-        include (child_initial_balance > 0) ==>
-            DiemAccount::ExtractWithdrawCapAbortsIf{sender_addr: parent_addr};
-        include (child_initial_balance) > 0 ==>
-            DiemAccount::PayFromAbortsIfRestricted<CoinType>{
-                cap: parent_cap,
-                payee: child_address,
-                amount: child_initial_balance,
-                metadata: x"",
-                metadata_signature: x""
-            };
-        include DiemAccount::CreateChildVASPAccountEnsures<CoinType>{
-            parent_addr: parent_addr,
-            child_addr: child_address,
-        };
-        ensures DiemAccount::balance<CoinType>(child_address) == child_initial_balance;
-        ensures DiemAccount::balance<CoinType>(parent_addr)
-            == old(DiemAccount::balance<CoinType>(parent_addr)) - child_initial_balance;
-
-        aborts_with [check]
-            Errors::REQUIRES_ROLE,
-            Errors::ALREADY_PUBLISHED,
-            Errors::LIMIT_EXCEEDED,
-            Errors::NOT_PUBLISHED,
-            Errors::INVALID_STATE,
-            Errors::INVALID_ARGUMENT;
-
-        include DiemAccount::MakeAccountEmits{new_account_address: child_address};
-        include child_initial_balance > 0 ==>
-            DiemAccount::PayFromEmits<CoinType>{
-                cap: parent_cap,
-                payee: child_address,
-                amount: child_initial_balance,
-                metadata: x"",
-            };
-
-        /// **Access Control:**
-        /// Only Parent VASP accounts can create Child VASP accounts [[A7]][ROLE].
-        include Roles::AbortsIfNotParentVasp{account: parent_vasp};
-
-        /// TODO(timeout): this currently times out
-        pragma verify = false;
-    }
-
     /// # Summary
     /// Creates a Parent VASP account with the specified human name. Must be called by the Treasury Compliance account.
     ///
@@ -195,28 +141,6 @@ module AccountCreationScripts {
             human_name,
             add_all_currencies
         );
-    }
-
-    spec fun create_parent_vasp_account {
-        use 0x1::Errors;
-        use 0x1::Roles;
-
-        include DiemAccount::TransactionChecks{sender: tc_account}; // properties checked by the prologue.
-        include DiemAccount::CreateParentVASPAccountAbortsIf<CoinType>{creator_account: tc_account};
-        include DiemAccount::CreateParentVASPAccountEnsures<CoinType>;
-
-        aborts_with [check]
-            Errors::INVALID_ARGUMENT,
-            Errors::REQUIRES_ADDRESS,
-            Errors::NOT_PUBLISHED,
-            Errors::ALREADY_PUBLISHED,
-            Errors::REQUIRES_ROLE;
-
-        include DiemAccount::MakeAccountEmits;
-
-        /// **Access Control:**
-        /// Only the Treasury Compliance account can create Parent VASP accounts [[A6]][ROLE].
-        include Roles::AbortsIfNotTreasuryCompliance{account: tc_account};
     }
 
     /// # Summary
@@ -279,29 +203,6 @@ module AccountCreationScripts {
             human_name,
             add_all_currencies
         );
-    }
-
-    spec fun create_designated_dealer {
-        use 0x1::Errors;
-        use 0x1::Roles;
-
-        include DiemAccount::TransactionChecks{sender: tc_account}; // properties checked by the prologue.
-        include DiemAccount::CreateDesignatedDealerAbortsIf<Currency>{
-            creator_account: tc_account, new_account_address: addr};
-        include DiemAccount::CreateDesignatedDealerEnsures<Currency>{new_account_address: addr};
-
-        aborts_with [check]
-            Errors::INVALID_ARGUMENT,
-            Errors::REQUIRES_ADDRESS,
-            Errors::NOT_PUBLISHED,
-            Errors::ALREADY_PUBLISHED,
-            Errors::REQUIRES_ROLE;
-
-        include DiemAccount::MakeAccountEmits{new_account_address: addr};
-
-        /// **Access Control:**
-        /// Only the Treasury Compliance account can create Designated Dealer accounts [[A5]][ROLE].
-        include Roles::AbortsIfNotTreasuryCompliance{account: tc_account};
     }
 }
 }

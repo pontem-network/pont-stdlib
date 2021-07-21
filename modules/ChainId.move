@@ -23,30 +23,10 @@ module ChainId {
         move_to(dr_account, ChainId { id })
     }
 
-    spec fun initialize {
-        pragma opaque;
-        let dr_addr = Signer::address_of(dr_account);
-        modifies global<ChainId>(dr_addr);
-        include CoreAddresses::AbortsIfNotDiemRoot{account: dr_account};
-        aborts_if exists<ChainId>(dr_addr) with Errors::ALREADY_PUBLISHED;
-        ensures exists<ChainId>(dr_addr);
-    }
-
     /// Return the chain ID of this Diem instance
     public fun get(): u8 acquires ChainId {
         Time::assert_operating();
         borrow_global<ChainId>(CoreAddresses::DIEM_ROOT_ADDRESS()).id
-    }
-
-    // =================================================================
-    // Module Specification
-
-    spec module {} // Switch to module documentation context
-
-    /// # Helper Functions
-
-    spec define spec_get_chain_id(): u8 {
-        global<ChainId>(CoreAddresses::DIEM_ROOT_ADDRESS()).id
     }
 }
 }
