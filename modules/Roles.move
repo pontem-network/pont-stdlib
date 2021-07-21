@@ -27,10 +27,6 @@ module Roles {
     const EPARENT_VASP_OR_DESIGNATED_DEALER: u64 = 5;
     /// The signer didn't have the required Designated Dealer role
     const EDESIGNATED_DEALER: u64 = 6;
-    /// The signer didn't have the required Validator role
-    const EVALIDATOR: u64 = 7;
-    /// The signer didn't have the required Validator Operator role
-    const EVALIDATOR_OPERATOR: u64 = 8;
     /// The signer didn't have the required Child VASP role
     const ECHILD_VASP: u64 = 9;
 
@@ -41,8 +37,6 @@ module Roles {
     const DIEM_ROOT_ROLE_ID: u64 = 0;
     const TREASURY_COMPLIANCE_ROLE_ID: u64 = 1;
     const DESIGNATED_DEALER_ROLE_ID: u64 = 2;
-    const VALIDATOR_ROLE_ID: u64 = 3;
-    const VALIDATOR_OPERATOR_ROLE_ID: u64 = 4;
     const PARENT_VASP_ROLE_ID: u64 = 5;
     const CHILD_VASP_ROLE_ID: u64 = 6;
 
@@ -102,34 +96,6 @@ module Roles {
     spec fun new_designated_dealer_role {
         include AbortsIfNotTreasuryCompliance{account: creating_account};
         include GrantRole{addr: Signer::address_of(new_account), role_id: DESIGNATED_DEALER_ROLE_ID};
-    }
-
-    /// Publish a Validator `RoleId` under `new_account`.
-    /// The `creating_account` must be diem root.
-    public fun new_validator_role(
-        creating_account: &signer,
-        new_account: &signer
-    ) acquires RoleId {
-        assert_diem_root(creating_account);
-        grant_role(new_account, VALIDATOR_ROLE_ID);
-    }
-    spec fun new_validator_role {
-        include AbortsIfNotDiemRoot{account: creating_account};
-        include GrantRole{addr: Signer::address_of(new_account), role_id: VALIDATOR_ROLE_ID};
-    }
-
-    /// Publish a ValidatorOperator `RoleId` under `new_account`.
-    /// The `creating_account` must be DiemRoot
-    public fun new_validator_operator_role(
-        creating_account: &signer,
-        new_account: &signer,
-    ) acquires RoleId {
-        assert_diem_root(creating_account);
-        grant_role(new_account, VALIDATOR_OPERATOR_ROLE_ID);
-    }
-    spec fun new_validator_operator_role {
-        include AbortsIfNotDiemRoot{account: creating_account};
-        include GrantRole{addr: Signer::address_of(new_account), role_id: VALIDATOR_OPERATOR_ROLE_ID};
     }
 
     /// Publish a ParentVASP `RoleId` under `new_account`.
@@ -203,14 +169,6 @@ module Roles {
         has_role(account, DESIGNATED_DEALER_ROLE_ID)
     }
 
-    public fun has_validator_role(account: &signer): bool acquires RoleId {
-        has_role(account, VALIDATOR_ROLE_ID)
-    }
-
-    public fun has_validator_operator_role(account: &signer): bool acquires RoleId {
-        has_role(account, VALIDATOR_OPERATOR_ROLE_ID)
-    }
-
     public fun has_parent_VASP_role(account: &signer): bool acquires RoleId {
         has_role(account, PARENT_VASP_ROLE_ID)
     }
@@ -227,8 +185,7 @@ module Roles {
     /// Return true if `addr` is allowed to receive and send `Diem<T>` for any T
     public fun can_hold_balance(account: &signer): bool acquires RoleId {
         // VASP accounts and designated_dealers can hold balances.
-        // Administrative accounts (`Validator`, `ValidatorOperator`, `TreasuryCompliance`, and
-        // `DiemRoot`) cannot.
+        // Administrative accounts (`TreasuryCompliance`, and `DiemRoot`) cannot.
         has_parent_VASP_role(account) ||
         has_child_VASP_role(account) ||
         has_designated_dealer_role(account)
@@ -308,34 +265,6 @@ module Roles {
         include AbortsIfNotDesignatedDealer;
     }
 
-    /// Assert that the account has the validator role.
-    public fun assert_validator(validator_account: &signer) acquires RoleId {
-        let validator_addr = Signer::address_of(validator_account);
-        assert(exists<RoleId>(validator_addr), Errors::not_published(EROLE_ID));
-        assert(
-            borrow_global<RoleId>(validator_addr).role_id == VALIDATOR_ROLE_ID,
-            Errors::requires_role(EVALIDATOR)
-        )
-    }
-    spec fun assert_validator {
-        pragma opaque;
-        include AbortsIfNotValidator{validator_addr: Signer::address_of(validator_account)};
-    }
-
-    /// Assert that the account has the validator operator role.
-    public fun assert_validator_operator(validator_operator_account: &signer) acquires RoleId {
-        let validator_operator_addr = Signer::address_of(validator_operator_account);
-        assert(exists<RoleId>(validator_operator_addr), Errors::not_published(EROLE_ID));
-        assert(
-            borrow_global<RoleId>(validator_operator_addr).role_id == VALIDATOR_OPERATOR_ROLE_ID,
-            Errors::requires_role(EVALIDATOR_OPERATOR)
-        )
-    }
-    spec fun assert_validator_operator {
-        pragma opaque;
-        include AbortsIfNotValidatorOperator{validator_operator_addr: Signer::spec_address_of(validator_operator_account)};
-    }
-
     /// Assert that the account has either the parent vasp or designated dealer role.
     public fun assert_parent_vasp_or_designated_dealer(account: &signer) acquires RoleId {
         let addr = Signer::address_of(account);
@@ -397,17 +326,6 @@ module Roles {
             except grant_treasury_compliance_role, grant_role;
         apply DiemTimestamp::AbortsIfNotGenesis to grant_treasury_compliance_role;
 
-        /// Validator roles are only granted by DiemRoot [[A3]][ROLE]. A new `RoleId` with `VALIDATOR_ROLE_ID` is only
-        /// published through `new_validator_role` which aborts if `creating_account` does not have the DiemRoot role.
-        apply ThisRoleIsNotNewlyPublished{this: VALIDATOR_ROLE_ID} to * except new_validator_role, grant_role;
-        apply AbortsIfNotDiemRoot{account: creating_account} to new_validator_role;
-
-        /// ValidatorOperator roles are only granted by DiemRoot [[A4]][ROLE]. A new `RoleId` with `VALIDATOR_OPERATOR_ROLE_ID` is only
-        /// published through `new_validator_operator_role` which aborts if `creating_account` does not have the DiemRoot role.
-        apply ThisRoleIsNotNewlyPublished{this: VALIDATOR_OPERATOR_ROLE_ID} to *
-            except new_validator_operator_role, grant_role;
-        apply AbortsIfNotDiemRoot{account: creating_account} to new_validator_operator_role;
-
         /// DesignatedDealer roles are only granted by TreasuryCompliance [[A5]][ROLE]. A new `RoleId` with `DESIGNATED_DEALER_ROLE_ID()`
         /// is only published through `new_designated_dealer_role` which aborts if `creating_account` does not have the
         /// TreasuryCompliance role.
@@ -448,14 +366,6 @@ module Roles {
         invariant [global, isolated] forall addr: address where spec_has_treasury_compliance_role_addr(addr):
             !spec_can_hold_balance_addr(addr);
 
-        /// Validator cannot have balances [[D3]][ROLE].
-        invariant [global, isolated] forall addr: address where spec_has_validator_role_addr(addr):
-            !spec_can_hold_balance_addr(addr);
-
-        /// ValidatorOperator cannot have balances [[D4]][ROLE].
-        invariant [global, isolated] forall addr: address where spec_has_validator_operator_role_addr(addr):
-            !spec_can_hold_balance_addr(addr);
-
         /// DesignatedDealer have balances [[D5]][ROLE].
         invariant [global, isolated] forall addr: address where spec_has_designated_dealer_role_addr(addr):
             spec_can_hold_balance_addr(addr);
@@ -490,14 +400,6 @@ module Roles {
 
         define spec_has_designated_dealer_role_addr(addr: address): bool {
             spec_has_role_id_addr(addr, DESIGNATED_DEALER_ROLE_ID)
-        }
-
-        define spec_has_validator_role_addr(addr: address): bool {
-            spec_has_role_id_addr(addr, VALIDATOR_ROLE_ID)
-        }
-
-        define spec_has_validator_operator_role_addr(addr: address): bool {
-            spec_has_role_id_addr(addr, VALIDATOR_OPERATOR_ROLE_ID)
         }
 
         define spec_has_parent_VASP_role_addr(addr: address): bool {
@@ -572,19 +474,6 @@ module Roles {
         aborts_if !exists<RoleId>(addr) with Errors::NOT_PUBLISHED;
         let role_id = global<RoleId>(addr).role_id;
         aborts_if role_id != PARENT_VASP_ROLE_ID && role_id != CHILD_VASP_ROLE_ID
-            with Errors::REQUIRES_ROLE;
-    }
-
-    spec schema AbortsIfNotValidator {
-        validator_addr: address;
-        aborts_if !exists<RoleId>(validator_addr) with Errors::NOT_PUBLISHED;
-        aborts_if global<RoleId>(validator_addr).role_id != VALIDATOR_ROLE_ID with Errors::REQUIRES_ROLE;
-    }
-
-    spec schema AbortsIfNotValidatorOperator {
-        validator_operator_addr: address;
-        aborts_if !exists<RoleId>(validator_operator_addr) with Errors::NOT_PUBLISHED;
-        aborts_if global<RoleId>(validator_operator_addr).role_id != VALIDATOR_OPERATOR_ROLE_ID
             with Errors::REQUIRES_ROLE;
     }
 }
