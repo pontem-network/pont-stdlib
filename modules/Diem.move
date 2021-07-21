@@ -11,7 +11,6 @@ module Diem {
     use 0x1::FixedPoint32::{Self, FixedPoint32};
     use 0x1::Signer;
     use 0x1::Roles;
-    use 0x1::DiemTimestamp;
     use 0x1::Vector;
     use 0x1::NativeCurrencies;
 
@@ -240,22 +239,6 @@ module Diem {
     /// The maximum number of preburn requests that can be outstanding for a
     /// given designated dealer/currency.
     const MAX_OUTSTANDING_PREBURNS: u64 = 256;
-
-    /// Initialization of the `Diem` module. Initializes the set of
-    /// registered currencies in the `0x1::RegisteredCurrencies` on-chain
-    /// config, and publishes the `CurrencyRegistrationCapability` under the
-    /// `CoreAddresses::DIEM_ROOT_ADDRESS()`. This can only be called from genesis.
-    public fun initialize(
-        dr_account: &signer,
-    ) {
-        DiemTimestamp::assert_genesis();
-        // Operational constraint
-        CoreAddresses::assert_diem_root(dr_account);
-    }
-    spec fun initialize {
-        include DiemTimestamp::AbortsIfNotGenesis;
-        include CoreAddresses::AbortsIfNotDiemRoot{account: dr_account};
-    }
 
     /// Publishes the `BurnCapability` `cap` for the `CoinType` currency under `account`. `CoinType`
     /// must be a registered currency type. The caller must pass a treasury compliance account.

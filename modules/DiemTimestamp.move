@@ -32,25 +32,23 @@ module DiemTimestamp {
     /// An invalid timestamp was provided
     const ETIMESTAMP: u64 = 2;
 
-    /// Marks that time has started and genesis has finished. This can only be called from genesis and with the root
-    /// account.
-    public fun set_time_has_started(dr_account: &signer) {
-        assert_genesis();
-        CoreAddresses::assert_diem_root(dr_account);
-        let timer = CurrentTimeMicroseconds { microseconds: 0 };
-        move_to(dr_account, timer);
-    }
-    spec fun set_time_has_started {
-        /// The friend of this function is `Genesis::initialize` which means that
-        /// this function can't be verified on its own and has to be verified in
-        /// context of Genesis execution.
-        /// After time has started, all invariants guarded by `DiemTimestamp::is_operating`
-        /// will become activated and need to hold.
-        pragma friend = 0x1::Genesis::initialize;
-        include AbortsIfNotGenesis;
-        include CoreAddresses::AbortsIfNotDiemRoot{account: dr_account};
-        ensures is_operating();
-    }
+//    public fun set_time_has_started(dr_account: &signer) {
+//        assert_genesis();
+//        CoreAddresses::assert_diem_root(dr_account);
+//        let timer = CurrentTimeMicroseconds { microseconds: 0 };
+//        move_to(dr_account, timer);
+//    }
+//    spec fun set_time_has_started {
+//        /// The friend of this function is `Genesis::initialize` which means that
+//        /// this function can't be verified on its own and has to be verified in
+//        /// context of Genesis execution.
+//        /// After time has started, all invariants guarded by `DiemTimestamp::is_operating`
+//        /// will become activated and need to hold.
+//        pragma friend = 0x1::Genesis::initialize;
+//        include AbortsIfNotGenesis;
+//        include CoreAddresses::AbortsIfNotDiemRoot{account: dr_account};
+//        ensures is_operating();
+//    }
 
     /// Updates the wall clock time by consensus. Requires VM privilege and will be invoked during block prologue.
     public fun update_global_time(

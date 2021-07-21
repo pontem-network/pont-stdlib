@@ -4,7 +4,7 @@ address 0x1 {
 /// a given time period.
 module AccountLimits {
     use 0x1::Errors;
-    use 0x1::DiemTimestamp;
+    use 0x1::Time;
     use 0x1::Roles;
     use 0x1::Signer;
 
@@ -62,12 +62,11 @@ module AccountLimits {
     /// Grant a capability to call this module. This does not necessarily
     /// need to be a unique capability.
     public fun grant_mutation_capability(dr_account: &signer): AccountLimitMutationCapability {
-        DiemTimestamp::assert_genesis();
+        Time::assert_genesis();
         Roles::assert_diem_root(dr_account);
         AccountLimitMutationCapability{}
     }
     spec fun grant_mutation_capability {
-        include DiemTimestamp::AbortsIfNotGenesis;
         include Roles::AbortsIfNotDiemRoot{account: dr_account};
     }
 
@@ -271,7 +270,7 @@ module AccountLimits {
     /// `limits_definition.time_period` has elapsed, resets the window and
     /// the inflow and outflow records.
     fun reset_window<CoinType: store>(window: &mut Window<CoinType>, limits_definition: &LimitsDefinition<CoinType>) {
-        let current_time = DiemTimestamp::now_microseconds();
+        let current_time = Time::now_microseconds();
         assert(window.window_start <= MAX_U64 - limits_definition.time_period, Errors::limit_exceeded(EWINDOW));
         if (current_time > window.window_start + limits_definition.time_period) {
             window.window_start = current_time;
@@ -287,37 +286,12 @@ module AccountLimits {
     spec schema ResetWindowAbortsIf<CoinType> {
         window: Window<CoinType>;
         limits_definition: LimitsDefinition<CoinType>;
-        include DiemTimestamp::AbortsIfNotOperating;
         aborts_if window.window_start + limits_definition.time_period > max_u64() with Errors::LIMIT_EXCEEDED;
     }
     spec schema ResetWindowEnsures<CoinType> {
         window: Window<CoinType>;
         limits_definition: LimitsDefinition<CoinType>;
         ensures window == old(spec_window_reset_with_limits(window, limits_definition));
-    }
-    spec module {
-        define spec_window_expired<CoinType>(
-            window: Window<CoinType>,
-            limits_definition: LimitsDefinition<CoinType>
-        ): bool {
-            DiemTimestamp::spec_now_microseconds() > window.window_start + limits_definition.time_period
-        }
-        define spec_window_reset_with_limits<CoinType>(
-            window: Window<CoinType>,
-            limits_definition: LimitsDefinition<CoinType>
-        ): Window<CoinType> {
-            if (spec_window_expired<CoinType>(window, limits_definition)) {
-                Window<CoinType>{
-                    limit_address: window.limit_address,
-                    tracked_balance: window.tracked_balance,
-                    window_start: DiemTimestamp::spec_now_microseconds(),
-                    window_inflow: 0,
-                    window_outflow: 0
-                }
-            } else {
-                window
-            }
-        }
     }
 
     /// Verify that the receiving account tracked by the `receiving` window
@@ -520,7 +494,7 @@ module AccountLimits {
     }
 
     fun current_time(): u64 {
-        if (DiemTimestamp::is_genesis()) 0 else DiemTimestamp::now_microseconds()
+        if (Time::is_genesis()) 0 else Time::now_microseconds()
     }
 
     // =================================================================
