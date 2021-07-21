@@ -1,7 +1,6 @@
 address 0x1 {
 module AccountCreationScripts {
     use 0x1::DiemAccount;
-    use 0x1::SlidingNonce;
 
     /// # Summary
     /// Creates a Child VASP account with its parent being the sending account of the transaction.
@@ -147,7 +146,6 @@ module AccountCreationScripts {
     /// `auth_key_prefix` | `new_account_address` and a 0 balance of type `CoinType`. If
     /// `add_all_currencies` is true, 0 balances for all available currencies in the system will
     /// also be added. This can only be invoked by an TreasuryCompliance account.
-    /// `sliding_nonce` is a unique nonce for operation, see `SlidingNonce` for details.
     /// Authentication keys, prefixes, and how to construct them from an ed25519 public key are described
     /// [here](https://developers.diem.com/docs/core/accounts/#addresses-authentication-keys-and-cryptographic-keys).
     ///
@@ -162,7 +160,6 @@ module AccountCreationScripts {
     /// | ------                | ------       | -------------                                                                                                                                                  |
     /// | `CoinType`            | Type         | The Move type for the `CoinType` currency that the Parent VASP account should be initialized with. `CoinType` must be an already-registered currency on-chain. |
     /// | `tc_account`          | `signer`     | The signer of the sending account of this transaction. Must be the Treasury Compliance account.                                                                |
-    /// | `sliding_nonce`       | `u64`        | The `sliding_nonce` (see: `SlidingNonce`) to be used for this transaction.                                                                                     |
     /// | `new_account_address` | `address`    | Address of the to-be-created Parent VASP account.                                                                                                              |
     /// | `auth_key_prefix`     | `vector<u8>` | The authentication key prefix that will be used initially for the newly created account.                                                                       |
     /// | `human_name`          | `vector<u8>` | ASCII-encoded human name for the Parent VASP.                                                                                                                  |
@@ -171,10 +168,6 @@ module AccountCreationScripts {
     /// # Common Abort Conditions
     /// | Error Category              | Error Reason                            | Description                                                                                |
     /// | ----------------            | --------------                          | -------------                                                                              |
-    /// | `Errors::NOT_PUBLISHED`     | `SlidingNonce::ESLIDING_NONCE`          | A `SlidingNonce` resource is not published under `tc_account`.                             |
-    /// | `Errors::INVALID_ARGUMENT`  | `SlidingNonce::ENONCE_TOO_OLD`          | The `sliding_nonce` is too old and it's impossible to determine if it's duplicated or not. |
-    /// | `Errors::INVALID_ARGUMENT`  | `SlidingNonce::ENONCE_TOO_NEW`          | The `sliding_nonce` is too far in the future.                                              |
-    /// | `Errors::INVALID_ARGUMENT`  | `SlidingNonce::ENONCE_ALREADY_RECORDED` | The `sliding_nonce` has been previously recorded.                                          |
     /// | `Errors::REQUIRES_ADDRESS`  | `CoreAddresses::ETREASURY_COMPLIANCE`   | The sending account is not the Treasury Compliance account.                                |
     /// | `Errors::REQUIRES_ROLE`     | `Roles::ETREASURY_COMPLIANCE`           | The sending account is not the Treasury Compliance account.                                |
     /// | `Errors::NOT_PUBLISHED`     | `Diem::ECURRENCY_INFO`                 | The `CoinType` is not a registered currency on-chain.                                      |
@@ -190,13 +183,11 @@ module AccountCreationScripts {
 
     public(script) fun create_parent_vasp_account<CoinType: store>(
         tc_account: signer,
-        sliding_nonce: u64,
         new_account_address: address,
         auth_key_prefix: vector<u8>,
         human_name: vector<u8>,
         add_all_currencies: bool
     ) {
-        SlidingNonce::record_nonce_or_abort(&tc_account, sliding_nonce);
         DiemAccount::create_parent_vasp_account<CoinType>(
             &tc_account,
             new_account_address,
@@ -211,7 +202,6 @@ module AccountCreationScripts {
         use 0x1::Roles;
 
         include DiemAccount::TransactionChecks{sender: tc_account}; // properties checked by the prologue.
-        include SlidingNonce::RecordNonceAbortsIf{account: tc_account, seq_nonce: sliding_nonce};
         include DiemAccount::CreateParentVASPAccountAbortsIf<CoinType>{creator_account: tc_account};
         include DiemAccount::CreateParentVASPAccountEnsures<CoinType>;
 
@@ -256,7 +246,6 @@ module AccountCreationScripts {
     /// | ------               | ------       | -------------                                                                                                                                       |
     /// | `Currency`           | Type         | The Move type for the `Currency` that the Designated Dealer should be initialized with. `Currency` must be an already-registered currency on-chain. |
     /// | `tc_account`         | `signer`     | The signer of the sending account of this transaction. Must be the Treasury Compliance account.                                                     |
-    /// | `sliding_nonce`      | `u64`        | The `sliding_nonce` (see: `SlidingNonce`) to be used for this transaction.                                                                          |
     /// | `addr`               | `address`    | Address of the to-be-created Designated Dealer account.                                                                                             |
     /// | `auth_key_prefix`    | `vector<u8>` | The authentication key prefix that will be used initially for the newly created account.                                                            |
     /// | `human_name`         | `vector<u8>` | ASCII-encoded human name for the Designated Dealer.                                                                                                 |
@@ -266,10 +255,6 @@ module AccountCreationScripts {
     /// # Common Abort Conditions
     /// | Error Category              | Error Reason                            | Description                                                                                |
     /// | ----------------            | --------------                          | -------------                                                                              |
-    /// | `Errors::NOT_PUBLISHED`     | `SlidingNonce::ESLIDING_NONCE`          | A `SlidingNonce` resource is not published under `tc_account`.                             |
-    /// | `Errors::INVALID_ARGUMENT`  | `SlidingNonce::ENONCE_TOO_OLD`          | The `sliding_nonce` is too old and it's impossible to determine if it's duplicated or not. |
-    /// | `Errors::INVALID_ARGUMENT`  | `SlidingNonce::ENONCE_TOO_NEW`          | The `sliding_nonce` is too far in the future.                                              |
-    /// | `Errors::INVALID_ARGUMENT`  | `SlidingNonce::ENONCE_ALREADY_RECORDED` | The `sliding_nonce` has been previously recorded.                                          |
     /// | `Errors::REQUIRES_ADDRESS`  | `CoreAddresses::ETREASURY_COMPLIANCE`   | The sending account is not the Treasury Compliance account.                                |
     /// | `Errors::REQUIRES_ROLE`     | `Roles::ETREASURY_COMPLIANCE`           | The sending account is not the Treasury Compliance account.                                |
     /// | `Errors::NOT_PUBLISHED`     | `Diem::ECURRENCY_INFO`                 | The `Currency` is not a registered currency on-chain.                                      |
@@ -282,13 +267,11 @@ module AccountCreationScripts {
 
     public(script) fun create_designated_dealer<Currency: store>(
         tc_account: signer,
-        sliding_nonce: u64,
         addr: address,
         auth_key_prefix: vector<u8>,
         human_name: vector<u8>,
         add_all_currencies: bool,
     ) {
-        SlidingNonce::record_nonce_or_abort(&tc_account, sliding_nonce);
         DiemAccount::create_designated_dealer<Currency>(
             &tc_account,
             addr,
@@ -303,7 +286,6 @@ module AccountCreationScripts {
         use 0x1::Roles;
 
         include DiemAccount::TransactionChecks{sender: tc_account}; // properties checked by the prologue.
-        include SlidingNonce::RecordNonceAbortsIf{account: tc_account, seq_nonce: sliding_nonce};
         include DiemAccount::CreateDesignatedDealerAbortsIf<Currency>{
             creator_account: tc_account, new_account_address: addr};
         include DiemAccount::CreateDesignatedDealerEnsures<Currency>{new_account_address: addr};

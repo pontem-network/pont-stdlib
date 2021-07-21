@@ -13,7 +13,6 @@ module DiemAccount {
     use 0x1::BCS;
     use 0x1::DiemTimestamp;
     use 0x1::Signer;
-    use 0x1::SlidingNonce;
     use 0x1::VASP;
     use 0x1::Vector;
     use 0x1::DesignatedDealer;
@@ -1106,7 +1105,7 @@ module DiemAccount {
 
 
     /// Creates the diem root account (during genesis). Publishes the Diem root role,
-    /// Publishes a SlidingNonce resource, sets up event generator, publishes
+    /// Sets up event generator, publishes
     /// AccountOperationsCapability, WriteSetManager, and finally makes the account.
     fun create_diem_root_account(
         auth_key_prefix: vector<u8>,
@@ -1115,7 +1114,6 @@ module DiemAccount {
         let dr_account = create_signer(CoreAddresses::DIEM_ROOT_ADDRESS());
         CoreAddresses::assert_diem_root(&dr_account);
         Roles::grant_diem_root_role(&dr_account);
-        SlidingNonce::publish(&dr_account);
         Event::publish_generator(&dr_account);
 
         assert(
@@ -1156,14 +1154,12 @@ module DiemAccount {
         modifies global<DiemAccount>(dr_addr);
         modifies global<AccountOperationsCapability>(dr_addr);
         modifies global<DiemWriteSetManager>(dr_addr);
-        modifies global<SlidingNonce::SlidingNonce>(dr_addr);
         modifies global<Roles::RoleId>(dr_addr);
     }
     spec schema CreateDiemRootAccountAbortsIf {
         auth_key_prefix: vector<u8>;
         include DiemTimestamp::AbortsIfNotGenesis;
         include Roles::GrantRole{addr: CoreAddresses::DIEM_ROOT_ADDRESS(), role_id: Roles::DIEM_ROOT_ROLE_ID};
-        aborts_if exists<SlidingNonce::SlidingNonce>(CoreAddresses::DIEM_ROOT_ADDRESS())
             with Errors::ALREADY_PUBLISHED;
         aborts_if exists<AccountOperationsCapability>(CoreAddresses::DIEM_ROOT_ADDRESS())
             with Errors::ALREADY_PUBLISHED;
@@ -1175,7 +1171,6 @@ module DiemAccount {
         let dr_addr = CoreAddresses::DIEM_ROOT_ADDRESS();
         ensures exists<AccountOperationsCapability>(dr_addr);
         ensures exists<DiemWriteSetManager>(dr_addr);
-        ensures exists<SlidingNonce::SlidingNonce>(dr_addr);
         ensures Roles::spec_has_diem_root_role_addr(dr_addr);
         ensures exists_at(dr_addr);
         ensures spec_holds_own_key_rotation_cap(dr_addr);
@@ -1184,7 +1179,7 @@ module DiemAccount {
 
     /// Create a treasury/compliance account at `new_account_address` with authentication key
     /// `auth_key_prefix` | `new_account_address`.  Can only be called during genesis.
-    /// Also, publishes the treasury compliance role, the SlidingNonce resource, and
+    /// Also, publishes the treasury compliance role and
     /// event handle generator, then makes the account.
     fun create_treasury_compliance_account(
         dr_account: &signer,
@@ -1195,7 +1190,6 @@ module DiemAccount {
         let new_account_address = CoreAddresses::TREASURY_COMPLIANCE_ADDRESS();
         let new_account = create_signer(new_account_address);
         Roles::grant_treasury_compliance_role(&new_account, dr_account);
-        SlidingNonce::publish(&new_account);
         Event::publish_generator(&new_account);
         make_account(new_account, auth_key_prefix)
     }
@@ -1214,7 +1208,6 @@ module DiemAccount {
     spec schema CreateTreasuryComplianceAccountModifies {
         let tc_addr = CoreAddresses::TREASURY_COMPLIANCE_ADDRESS();
         modifies global<DiemAccount>(tc_addr);
-        modifies global<SlidingNonce::SlidingNonce>(tc_addr);
         modifies global<Roles::RoleId>(tc_addr);
         modifies global<AccountOperationsCapability>(CoreAddresses::DIEM_ROOT_ADDRESS());
         ensures exists<AccountOperationsCapability>(CoreAddresses::DIEM_ROOT_ADDRESS());
@@ -1225,14 +1218,11 @@ module DiemAccount {
         auth_key_prefix: vector<u8>;
         include DiemTimestamp::AbortsIfNotGenesis;
         include Roles::GrantRole{addr: CoreAddresses::TREASURY_COMPLIANCE_ADDRESS(), role_id: Roles::TREASURY_COMPLIANCE_ROLE_ID};
-        aborts_if exists<SlidingNonce::SlidingNonce>(CoreAddresses::TREASURY_COMPLIANCE_ADDRESS())
-            with Errors::ALREADY_PUBLISHED;
     }
     spec schema CreateTreasuryComplianceAccountEnsures {
         let tc_addr = CoreAddresses::TREASURY_COMPLIANCE_ADDRESS();
         ensures Roles::spec_has_treasury_compliance_role_addr(tc_addr);
         ensures exists_at(tc_addr);
-        ensures exists<SlidingNonce::SlidingNonce>(tc_addr);
         ensures spec_holds_own_key_rotation_cap(tc_addr);
         ensures spec_holds_own_withdraw_cap(tc_addr);
     }
