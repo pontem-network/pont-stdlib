@@ -59,17 +59,6 @@ module CoreAddresses {
     public fun assert_diem_root(account: &signer) {
         assert(Signer::address_of(account) == DIEM_ROOT_ADDRESS(), Errors::requires_address(EDIEM_ROOT))
     }
-    spec fun assert_diem_root {
-        pragma opaque;
-        include AbortsIfNotDiemRoot;
-    }
-
-    /// Specifies that a function aborts if the account does not have the Diem root address.
-    spec schema AbortsIfNotDiemRoot {
-        account: signer;
-        aborts_if Signer::spec_address_of(account) != DIEM_ROOT_ADDRESS()
-            with Errors::REQUIRES_ADDRESS;
-    }
 
     /// Assert that the signer has the treasury compliance address.
     public fun assert_treasury_compliance(account: &signer) {
@@ -78,49 +67,15 @@ module CoreAddresses {
             Errors::requires_address(ETREASURY_COMPLIANCE)
         )
     }
-    spec fun assert_treasury_compliance {
-        pragma opaque;
-        include AbortsIfNotTreasuryCompliance;
-    }
-
-    /// Specifies that a function aborts if the account does not have the treasury compliance address.
-    spec schema AbortsIfNotTreasuryCompliance {
-        account: signer;
-        aborts_if Signer::spec_address_of(account) != TREASURY_COMPLIANCE_ADDRESS()
-            with Errors::REQUIRES_ADDRESS;
-    }
 
     /// Assert that the signer has the VM reserved address.
     public fun assert_vm(account: &signer) {
         assert(Signer::address_of(account) == VM_RESERVED_ADDRESS(), Errors::requires_address(EVM))
-    }
-    spec fun assert_vm {
-        pragma opaque;
-        include AbortsIfNotVM;
-    }
-
-    /// Specifies that a function aborts if the account does not have the VM reserved address.
-    spec schema AbortsIfNotVM {
-        account: signer;
-        aborts_if Signer::spec_address_of(account) != VM_RESERVED_ADDRESS()
-            with Errors::REQUIRES_ADDRESS;
     }
 
     /// Assert that the signer has the currency info address.
     public fun assert_currency_info(account: &signer) {
         assert(Signer::address_of(account) == CURRENCY_INFO_ADDRESS(), Errors::requires_address(ECURRENCY_INFO))
     }
-    spec fun assert_currency_info {
-        pragma opaque;
-        include AbortsIfNotCurrencyInfo;
-    }
-
-    /// Specifies that a function aborts if the account has not the currency info address.
-    spec schema AbortsIfNotCurrencyInfo {
-        account: signer;
-        aborts_if Signer::spec_address_of(account) != CURRENCY_INFO_ADDRESS()
-            with Errors::REQUIRES_ADDRESS;
-    }
-
 }
 }

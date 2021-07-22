@@ -4,7 +4,7 @@ address 0x1 {
 /// a given time period.
 module AccountLimits {
     use 0x1::Errors;
-    use 0x1::DiemTimestamp;
+    use 0x1::Time;
     use 0x1::Roles;
     use 0x1::Signer;
 
@@ -26,12 +26,6 @@ module AccountLimits {
         time_period: u64,
         /// The maximum amount that can be held
         max_holding: u64,
-    }
-    spec struct LimitsDefinition {
-        invariant max_inflow > 0;
-        invariant max_outflow > 0;
-        invariant time_period > 0;
-        invariant max_holding > 0;
     }
 
     /// A struct holding account transaction information for the time window
@@ -62,13 +56,9 @@ module AccountLimits {
     /// Grant a capability to call this module. This does not necessarily
     /// need to be a unique capability.
     public fun grant_mutation_capability(dr_account: &signer): AccountLimitMutationCapability {
-        DiemTimestamp::assert_genesis();
+        Time::assert_genesis();
         Roles::assert_diem_root(dr_account);
         AccountLimitMutationCapability{}
-    }
-    spec fun grant_mutation_capability {
-        include DiemTimestamp::AbortsIfNotGenesis;
-        include Roles::AbortsIfNotDiemRoot{account: dr_account};
     }
 
     /// Determines if depositing `amount` of `CoinType` coins into the
@@ -85,25 +75,6 @@ module AccountLimits {
             borrow_global_mut<Window<CoinType>>(addr),
         )
     }
-    spec fun update_deposit_limits {
-        pragma opaque;
-        modifies global<Window<CoinType>>(addr);
-        include UpdateDepositLimitsAbortsIf<CoinType>;
-        include CanReceiveEnsures<CoinType>{receiving: global<Window<CoinType>>(addr)};
-    }
-    spec schema UpdateDepositLimitsAbortsIf<CoinType> {
-        amount: u64;
-        addr: address;
-        include AbortsIfNoWindow<CoinType>;
-        include CanReceiveAbortsIf<CoinType>{receiving: global<Window<CoinType>>(addr)};
-    }
-    spec schema AbortsIfNoWindow<CoinType> {
-        addr: address;
-        aborts_if !exists<Window<CoinType>>(addr) with Errors::NOT_PUBLISHED;
-    }
-    spec define spec_update_deposit_limits<CoinType>(amount: u64, addr: address): bool {
-        spec_receiving_limits_ok(global<Window<CoinType>>(addr), amount)
-    }
 
     /// Determine if withdrawing `amount` of `CoinType` coins from
     /// the account at `addr` would violate the account limits for that account.
@@ -118,21 +89,6 @@ module AccountLimits {
             amount,
             borrow_global_mut<Window<CoinType>>(addr),
         )
-    }
-    spec fun update_withdrawal_limits {
-        pragma opaque;
-        modifies global<Window<CoinType>>(addr);
-        include UpdateWithdrawalLimitsAbortsIf<CoinType>;
-        include CanWithdrawEnsures<CoinType>{sending: global<Window<CoinType>>(addr)};
-    }
-    spec schema UpdateWithdrawalLimitsAbortsIf<CoinType> {
-        amount: u64;
-        addr: address;
-        include AbortsIfNoWindow<CoinType>;
-        include CanWithdrawAbortsIf<CoinType>{sending: global<Window<CoinType>>(addr)};
-    }
-    spec define spec_update_withdrawal_limits<CoinType>(amount: u64, addr: address): bool {
-        spec_withdrawal_limits_ok(global<Window<CoinType>>(addr), amount)
     }
 
     /// All accounts that could be subject to account limits will have a
@@ -162,20 +118,6 @@ module AccountLimits {
             }
         )
     }
-    spec fun publish_window {
-        include PublishWindowAbortsIf<CoinType>;
-    }
-    spec schema PublishWindowAbortsIf<CoinType> {
-        dr_account: signer;
-        to_limit: signer;
-        limit_address: address;
-        /// Only ParentVASP and ChildVASP can have the account limits [[E1]][ROLE][[E2]][ROLE][[E3]][ROLE][[E4]][ROLE][[E5]][ROLE][[E6]][ROLE][[E7]][ROLE].
-        include Roles::AbortsIfNotParentVaspOrChildVasp{account: to_limit};
-
-        include Roles::AbortsIfNotDiemRoot{account: dr_account};
-        aborts_if !exists<LimitsDefinition<CoinType>>(limit_address) with Errors::NOT_PUBLISHED;
-        aborts_if exists<Window<CoinType>>(Signer::spec_address_of(to_limit)) with Errors::ALREADY_PUBLISHED;
-    }
 
     /// Unrestricted limits are represented by setting all fields in the
     /// limits definition to `MAX_U64`. Anyone can publish an unrestricted
@@ -197,23 +139,6 @@ module AccountLimits {
                 time_period: ONE_DAY,
             }
         )
-    }
-    spec fun publish_unrestricted_limits {
-        /// TODO: turned off verification until we solve the
-        /// generic type/specific invariant issue. Similar to
-        /// in DiemConfig, this function violates an invariant in
-        /// XUS about LimitsDefinition<XUS>.
-        pragma verify = false;
-        include PublishUnrestrictedLimitsAbortsIf<CoinType>;
-    }
-    spec schema PublishUnrestrictedLimitsAbortsIf<CoinType> {
-        publish_account: signer;
-        aborts_if exists<LimitsDefinition<CoinType>>(Signer::spec_address_of(publish_account))
-            with Errors::ALREADY_PUBLISHED;
-    }
-    spec schema PublishUnrestrictedLimitsEnsures<CoinType> {
-        publish_account: signer;
-        ensures exists<LimitsDefinition<CoinType>>(Signer::spec_address_of(publish_account));
     }
 
     /// Updates the `LimitsDefinition<CoinType>` resource at `limit_address`.
@@ -271,52 +196,12 @@ module AccountLimits {
     /// `limits_definition.time_period` has elapsed, resets the window and
     /// the inflow and outflow records.
     fun reset_window<CoinType: store>(window: &mut Window<CoinType>, limits_definition: &LimitsDefinition<CoinType>) {
-        let current_time = DiemTimestamp::now_microseconds();
+        let current_time = Time::now_microseconds();
         assert(window.window_start <= MAX_U64 - limits_definition.time_period, Errors::limit_exceeded(EWINDOW));
         if (current_time > window.window_start + limits_definition.time_period) {
             window.window_start = current_time;
             window.window_inflow = 0;
             window.window_outflow = 0;
-        }
-    }
-    spec fun reset_window {
-        pragma opaque;
-        include ResetWindowAbortsIf<CoinType>;
-        include ResetWindowEnsures<CoinType>;
-    }
-    spec schema ResetWindowAbortsIf<CoinType> {
-        window: Window<CoinType>;
-        limits_definition: LimitsDefinition<CoinType>;
-        include DiemTimestamp::AbortsIfNotOperating;
-        aborts_if window.window_start + limits_definition.time_period > max_u64() with Errors::LIMIT_EXCEEDED;
-    }
-    spec schema ResetWindowEnsures<CoinType> {
-        window: Window<CoinType>;
-        limits_definition: LimitsDefinition<CoinType>;
-        ensures window == old(spec_window_reset_with_limits(window, limits_definition));
-    }
-    spec module {
-        define spec_window_expired<CoinType>(
-            window: Window<CoinType>,
-            limits_definition: LimitsDefinition<CoinType>
-        ): bool {
-            DiemTimestamp::spec_now_microseconds() > window.window_start + limits_definition.time_period
-        }
-        define spec_window_reset_with_limits<CoinType>(
-            window: Window<CoinType>,
-            limits_definition: LimitsDefinition<CoinType>
-        ): Window<CoinType> {
-            if (spec_window_expired<CoinType>(window, limits_definition)) {
-                Window<CoinType>{
-                    limit_address: window.limit_address,
-                    tracked_balance: window.tracked_balance,
-                    window_start: DiemTimestamp::spec_now_microseconds(),
-                    window_inflow: 0,
-                    window_outflow: 0
-                }
-            } else {
-                window
-            }
         }
     }
 
@@ -349,63 +234,6 @@ module AccountLimits {
         };
         inflow_ok && holding_ok
     }
-    spec fun can_receive_and_update_window {
-        pragma opaque;
-        include CanReceiveAbortsIf<CoinType>;
-        include CanReceiveEnsures<CoinType>;
-    }
-    spec schema CanReceiveAbortsIf<CoinType> {
-        amount: num;
-        receiving: Window<CoinType>;
-        aborts_if !exists<LimitsDefinition<CoinType>>(receiving.limit_address) with Errors::NOT_PUBLISHED;
-        include !spec_window_unrestricted<CoinType>(receiving) ==> CanReceiveRestrictedAbortsIf<CoinType>;
-    }
-    spec schema CanReceiveRestrictedAbortsIf<CoinType> {
-        amount: num;
-        receiving: Window<CoinType>;
-        include ResetWindowAbortsIf<CoinType>{
-            window: receiving,
-            limits_definition: spec_window_limits<CoinType>(receiving)
-        };
-        aborts_if spec_window_reset(receiving).window_inflow + amount > max_u64() with Errors::LIMIT_EXCEEDED;
-        aborts_if spec_window_reset(receiving).tracked_balance + amount > max_u64() with Errors::LIMIT_EXCEEDED;
-    }
-    spec schema CanReceiveEnsures<CoinType> {
-        amount: num;
-        receiving: Window<CoinType>;
-        result: bool;
-        ensures result == spec_receiving_limits_ok(old(receiving), amount);
-        ensures
-            if (result && !spec_window_unrestricted(old(receiving)))
-                receiving == spec_update_inflow(spec_window_reset(old(receiving)), amount)
-            else
-                receiving == spec_window_reset(old(receiving)) || receiving == old(receiving);
-    }
-    /// Returns the limits associated with this window.
-    spec define spec_window_limits<CoinType>(window: Window<CoinType>): LimitsDefinition<CoinType> {
-        global<LimitsDefinition<CoinType>>(window.limit_address)
-    }
-    /// Returns true of the window has unrestricted limits.
-    spec define spec_window_unrestricted<CoinType>(window: Window<CoinType>): bool {
-        spec_is_unrestricted(spec_window_limits<CoinType>(window))
-    }
-    /// Resets wrapping variables of the given window.
-    spec define spec_window_reset<CoinType>(window: Window<CoinType>): Window<CoinType> {
-        spec_window_reset_with_limits(window, spec_window_limits<CoinType>(window))
-    }
-    /// Checks whether receiving limits are satisfied.
-    spec define spec_receiving_limits_ok<CoinType>(receiving: Window<CoinType>, amount: u64): bool {
-        spec_window_unrestricted(receiving) ||
-            spec_window_reset(receiving).window_inflow + amount
-                    <= spec_window_limits(receiving).max_inflow &&
-            spec_window_reset(receiving).tracked_balance + amount
-                    <= spec_window_limits(receiving).max_holding
-    }
-    spec define spec_update_inflow<CoinType>(receiving: Window<CoinType>, amount: u64): Window<CoinType> {
-        update_field(update_field(receiving,
-            window_inflow, receiving.window_inflow + amount),
-            tracked_balance, receiving.tracked_balance + amount)
-    }
 
     /// Verify that `amount` can be withdrawn from the account tracked
     /// by the `sending` window without violating any limits specified
@@ -433,49 +261,6 @@ module AccountLimits {
         };
         outflow_ok
     }
-    spec fun can_withdraw_and_update_window {
-        pragma opaque;
-        include CanWithdrawAbortsIf<CoinType>;
-        include CanWithdrawEnsures<CoinType>;
-    }
-    spec schema CanWithdrawAbortsIf<CoinType> {
-        amount: u64;
-        sending: &mut Window<CoinType>;
-        aborts_if !exists<LimitsDefinition<CoinType>>(sending.limit_address) with Errors::NOT_PUBLISHED;
-        include !spec_window_unrestricted(sending) ==> CanWithdrawRestrictedAbortsIf<CoinType>;
-    }
-    spec schema CanWithdrawRestrictedAbortsIf<CoinType> {
-        amount: u64;
-        sending: &mut Window<CoinType>;
-        include ResetWindowAbortsIf<CoinType>{
-            window: sending,
-            limits_definition: spec_window_limits<CoinType>(sending)
-        };
-        aborts_if spec_window_reset(sending).window_outflow + amount > MAX_U64 with Errors::LIMIT_EXCEEDED;
-    }
-    spec schema CanWithdrawEnsures<CoinType> {
-        result: bool;
-        amount: u64;
-        sending: &mut Window<CoinType>;
-        ensures result == spec_withdrawal_limits_ok(old(sending), amount);
-        ensures
-            if (result && !spec_window_unrestricted(old(sending)))
-                sending == spec_update_outflow(spec_window_reset(old(sending)), amount)
-            else
-                sending == spec_window_reset(old(sending)) || sending == old(sending);
-    }
-    /// Check whether withdrawal limits are satisfied.
-    spec define spec_withdrawal_limits_ok<CoinType>(sending: Window<CoinType>, amount: u64): bool {
-        spec_window_unrestricted(sending) ||
-        spec_window_reset(sending).window_outflow + amount <= spec_window_limits(sending).max_outflow
-    }
-    /// Update outflow.
-    spec define spec_update_outflow<CoinType>(sending: Window<CoinType>, amount: u64): Window<CoinType> {
-        update_field(update_field(sending,
-            window_outflow, sending.window_outflow + amount),
-            tracked_balance, if (amount >= sending.tracked_balance) 0
-                             else sending.tracked_balance - amount)
-    }
 
     /// Determine whether the `LimitsDefinition` resource has no restrictions.
     fun is_unrestricted<CoinType: store>(limits_def: &LimitsDefinition<CoinType>): bool {
@@ -483,20 +268,6 @@ module AccountLimits {
         limits_def.max_outflow == MAX_U64 &&
         limits_def.max_holding == MAX_U64 &&
         limits_def.time_period == ONE_DAY
-    }
-    spec fun is_unrestricted {
-        pragma opaque;
-        aborts_if false;
-        ensures result == spec_is_unrestricted(limits_def);
-    }
-    spec module {
-        /// Checks whether the limits definition is unrestricted.
-        define spec_is_unrestricted<CoinType>(limits_def: LimitsDefinition<CoinType>): bool {
-            limits_def.max_inflow == max_u64() &&
-            limits_def.max_outflow == max_u64() &&
-            limits_def.max_holding == max_u64() &&
-            limits_def.time_period == 86400000000
-        }
     }
 
     public fun limits_definition_address<CoinType: store>(addr: address): address acquires Window {
@@ -510,51 +281,9 @@ module AccountLimits {
     public fun has_window_published<CoinType: store>(addr: address): bool {
         exists<Window<CoinType>>(addr)
     }
-    spec fun has_window_published {
-        ensures result == spec_has_window_published<CoinType>(addr);
-    }
-    spec module {
-        define spec_has_window_published<CoinType>(addr: address): bool {
-            exists<Window<CoinType>>(addr)
-        }
-    }
 
     fun current_time(): u64 {
-        if (DiemTimestamp::is_genesis()) 0 else DiemTimestamp::now_microseconds()
+        if (Time::is_genesis()) 0 else Time::now_microseconds()
     }
-
-    // =================================================================
-    // Module Specification
-
-    spec module {} // Switch to module documentation context
-
-    spec module {
-        /// `LimitsDefinition<CoinType>` persists after publication.
-        invariant update [global]
-            forall addr: address, coin_type: type where old(exists<LimitsDefinition<coin_type>>(addr)):
-                exists<LimitsDefinition<coin_type>>(addr);
-
-        /// `Window<CoinType>` persists after publication
-        invariant update [global]
-            forall window_addr: address, coin_type: type where old(exists<Window<coin_type>>(window_addr)):
-                exists<Window<coin_type>>(window_addr);
-
-        /// Invariant that `LimitsDefinition` exists if a `Window` exists.
-        invariant [global]
-           forall window_addr: address, coin_type: type where exists<Window<coin_type>>(window_addr):
-                exists<LimitsDefinition<coin_type>>(global<Window<coin_type>>(window_addr).limit_address);
-    }
-
-    /// # Access Control
-
-    spec module {
-        /// Only ParentVASP and ChildVASP can have the account limits [[E1]][ROLE][[E2]][ROLE][[E3]][ROLE][[E4]][ROLE][[E5]][ROLE][[E6]][ROLE][[E7]][ROLE].
-        invariant [global]
-            forall addr: address, coin_type: type where exists<Window<coin_type>>(addr):
-                exists<Roles::RoleId>(addr) &&
-                (global<Roles::RoleId>(addr).role_id == Roles::PARENT_VASP_ROLE_ID ||
-                    global<Roles::RoleId>(addr).role_id == Roles::CHILD_VASP_ROLE_ID);
-    }
-
 }
 }

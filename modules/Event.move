@@ -81,15 +81,6 @@ module Event {
     public fun destroy_handle<T: drop + store>(handle: EventHandle<T>) {
         EventHandle<T> { counter: _, guid: _ } = handle;
     }
-
-    // ****************** SPECIFICATIONS *******************
-    spec module {} // switch documentation context to module
-
-    spec module {
-        /// Functions of the event module are mocked out using the intrinsic
-        /// pragma. They are implemented in the prover's prelude.
-        pragma intrinsic = true;
-    }
 }
 
 }

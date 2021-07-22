@@ -4,7 +4,6 @@ module AccountAdministrationScripts {
     use 0x1::DiemAccount;
     use 0x1::RecoveryAddress;
     use 0x1::SharedEd25519PublicKey;
-    use 0x1::SlidingNonce;
     use 0x1::DualAttestation;
 
     /// # Summary
@@ -39,25 +38,6 @@ module AccountAdministrationScripts {
 
     public(script) fun add_currency_to_account<Currency: store>(account: signer) {
         DiemAccount::add_currency<Currency>(&account);
-    }
-    spec fun add_currency_to_account {
-        use 0x1::Errors;
-        use 0x1::Signer;
-        use 0x1::Roles;
-
-        include DiemAccount::TransactionChecks{sender: account}; // properties checked by the prologue.
-        include DiemAccount::AddCurrencyAbortsIf<Currency>;
-        include DiemAccount::AddCurrencyEnsures<Currency>{addr: Signer::spec_address_of(account)};
-
-        aborts_with [check]
-            Errors::NOT_PUBLISHED,
-            Errors::INVALID_ARGUMENT,
-            Errors::ALREADY_PUBLISHED;
-
-        /// **Access Control:**
-        /// The account must be allowed to hold balances. Only Designated Dealers, Parent VASPs,
-        /// and Child VASPs can hold balances [[D1]][ROLE][[D2]][ROLE][[D3]][ROLE][[D4]][ROLE][[D5]][ROLE][[D6]][ROLE][[D7]][ROLE].
-        aborts_if !Roles::can_hold_balance(account) with Errors::INVALID_ARGUMENT;
     }
 
     /// # Summary
@@ -106,30 +86,6 @@ module AccountAdministrationScripts {
             DiemAccount::extract_key_rotation_capability(&to_recover_account), recovery_address
         )
     }
-    spec fun add_recovery_rotation_capability {
-        use 0x1::Signer;
-        use 0x1::Errors;
-
-        include DiemAccount::TransactionChecks{sender: to_recover_account}; // properties checked by the prologue.
-        include DiemAccount::ExtractKeyRotationCapabilityAbortsIf{account: to_recover_account};
-        include DiemAccount::ExtractKeyRotationCapabilityEnsures{account: to_recover_account};
-
-        let addr = Signer::spec_address_of(to_recover_account);
-        let rotation_cap = DiemAccount::spec_get_key_rotation_cap(addr);
-
-        include RecoveryAddress::AddRotationCapabilityAbortsIf{
-            to_recover: rotation_cap
-        };
-
-        ensures RecoveryAddress::spec_get_rotation_caps(recovery_address)[
-            len(RecoveryAddress::spec_get_rotation_caps(recovery_address)) - 1] == old(rotation_cap);
-
-        aborts_with [check]
-            Errors::INVALID_STATE,
-            Errors::NOT_PUBLISHED,
-            Errors::LIMIT_EXCEEDED,
-            Errors::INVALID_ARGUMENT;
-    }
 
     /// # Summary
     /// Rotates the authentication key of the sending account to the newly-specified ed25519 public key and
@@ -162,19 +118,6 @@ module AccountAdministrationScripts {
     public(script) fun publish_shared_ed25519_public_key(account: signer, public_key: vector<u8>) {
         SharedEd25519PublicKey::publish(&account, public_key)
     }
-    spec fun publish_shared_ed25519_public_key {
-        use 0x1::Errors;
-        use 0x1::DiemAccount;
-
-        include DiemAccount::TransactionChecks{sender: account}; // properties checked by the prologue.
-        include SharedEd25519PublicKey::PublishAbortsIf{key: public_key};
-        include SharedEd25519PublicKey::PublishEnsures{key: public_key};
-
-        aborts_with [check]
-            Errors::INVALID_STATE,
-            Errors::ALREADY_PUBLISHED,
-            Errors::INVALID_ARGUMENT;
-    }
 
     /// # Summary
     /// Rotates the `account`'s authentication key to the supplied new authentication key. May be sent by any account.
@@ -206,159 +149,6 @@ module AccountAdministrationScripts {
         let key_rotation_capability = DiemAccount::extract_key_rotation_capability(&account);
         DiemAccount::rotate_authentication_key(&key_rotation_capability, new_key);
         DiemAccount::restore_key_rotation_capability(key_rotation_capability);
-    }
-    spec fun rotate_authentication_key {
-        use 0x1::Signer;
-        use 0x1::Errors;
-
-        include DiemAccount::TransactionChecks{sender: account}; // properties checked by the prologue.
-        let account_addr = Signer::spec_address_of(account);
-        include DiemAccount::ExtractKeyRotationCapabilityAbortsIf;
-        let key_rotation_capability = DiemAccount::spec_get_key_rotation_cap(account_addr);
-        include DiemAccount::RotateAuthenticationKeyAbortsIf{cap: key_rotation_capability, new_authentication_key: new_key};
-
-        /// This rotates the authentication key of `account` to `new_key`
-        include DiemAccount::RotateAuthenticationKeyEnsures{addr: account_addr, new_authentication_key: new_key};
-
-        aborts_with [check]
-            Errors::INVALID_STATE,
-            Errors::INVALID_ARGUMENT;
-
-        /// **Access Control:**
-        /// The account can rotate its own authentication key unless
-        /// it has delegrated the capability [[H18]][PERMISSION][[J18]][PERMISSION].
-        include DiemAccount::AbortsIfDelegatedKeyRotationCapability;
-    }
-
-    /// # Summary
-    /// Rotates the sender's authentication key to the supplied new authentication key. May be sent by
-    /// any account that has a sliding nonce resource published under it (usually this is Treasury
-    /// Compliance or Diem Root accounts).
-    ///
-    /// # Technical Description
-    /// Rotates the `account`'s `DiemAccount::DiemAccount` `authentication_key`
-    /// field to `new_key`. `new_key` must be a valid authentication key that
-    /// corresponds to an ed25519 public key as described [here](https://developers.diem.com/docs/core/accounts/#addresses-authentication-keys-and-cryptographic-keys),
-    /// and `account` must not have previously delegated its `DiemAccount::KeyRotationCapability`.
-    ///
-    /// # Parameters
-    /// | Name            | Type         | Description                                                                |
-    /// | ------          | ------       | -------------                                                              |
-    /// | `account`       | `signer`     | Signer of the sending account of the transaction.                          |
-    /// | `sliding_nonce` | `u64`        | The `sliding_nonce` (see: `SlidingNonce`) to be used for this transaction. |
-    /// | `new_key`       | `vector<u8>` | New authentication key to be used for `account`.                           |
-    ///
-    /// # Common Abort Conditions
-    /// | Error Category             | Error Reason                                               | Description                                                                                |
-    /// | ----------------           | --------------                                             | -------------                                                                              |
-    /// | `Errors::NOT_PUBLISHED`    | `SlidingNonce::ESLIDING_NONCE`                             | A `SlidingNonce` resource is not published under `account`.                                |
-    /// | `Errors::INVALID_ARGUMENT` | `SlidingNonce::ENONCE_TOO_OLD`                             | The `sliding_nonce` is too old and it's impossible to determine if it's duplicated or not. |
-    /// | `Errors::INVALID_ARGUMENT` | `SlidingNonce::ENONCE_TOO_NEW`                             | The `sliding_nonce` is too far in the future.                                              |
-    /// | `Errors::INVALID_ARGUMENT` | `SlidingNonce::ENONCE_ALREADY_RECORDED`                    | The `sliding_nonce` has been previously recorded.                                          |
-    /// | `Errors::INVALID_STATE`    | `DiemAccount::EKEY_ROTATION_CAPABILITY_ALREADY_EXTRACTED` | `account` has already delegated/extracted its `DiemAccount::KeyRotationCapability`.       |
-    /// | `Errors::INVALID_ARGUMENT` | `DiemAccount::EMALFORMED_AUTHENTICATION_KEY`              | `new_key` was an invalid length.                                                           |
-    ///
-    /// # Related Scripts
-    /// * `AccountAdministrationScripts::rotate_authentication_key`
-    /// * `AccountAdministrationScripts::rotate_authentication_key_with_nonce_admin`
-    /// * `AccountAdministrationScripts::rotate_authentication_key_with_recovery_address`
-
-    public(script) fun rotate_authentication_key_with_nonce(account: signer, sliding_nonce: u64, new_key: vector<u8>) {
-        SlidingNonce::record_nonce_or_abort(&account, sliding_nonce);
-        let key_rotation_capability = DiemAccount::extract_key_rotation_capability(&account);
-        DiemAccount::rotate_authentication_key(&key_rotation_capability, new_key);
-        DiemAccount::restore_key_rotation_capability(key_rotation_capability);
-    }
-    spec fun rotate_authentication_key_with_nonce {
-        use 0x1::Signer;
-        use 0x1::Errors;
-
-        include DiemAccount::TransactionChecks{sender: account}; // properties checked by the prologue.
-        let account_addr = Signer::spec_address_of(account);
-        include SlidingNonce::RecordNonceAbortsIf{ seq_nonce: sliding_nonce };
-        include DiemAccount::ExtractKeyRotationCapabilityAbortsIf;
-        let key_rotation_capability = DiemAccount::spec_get_key_rotation_cap(account_addr);
-        include DiemAccount::RotateAuthenticationKeyAbortsIf{cap: key_rotation_capability, new_authentication_key: new_key};
-
-        /// This rotates the authentication key of `account` to `new_key`
-        include DiemAccount::RotateAuthenticationKeyEnsures{addr: account_addr, new_authentication_key: new_key};
-
-        aborts_with [check]
-            Errors::INVALID_ARGUMENT,
-            Errors::INVALID_STATE,
-            Errors::NOT_PUBLISHED;
-
-        /// **Access Control:**
-        /// The account can rotate its own authentication key unless
-        /// it has delegrated the capability [[H18]][PERMISSION][[J18]][PERMISSION].
-        include DiemAccount::AbortsIfDelegatedKeyRotationCapability;
-    }
-
-    /// # Summary
-    /// Rotates the specified account's authentication key to the supplied new authentication key. May
-    /// only be sent by the Diem Root account as a write set transaction.
-    ///
-    /// # Technical Description
-    /// Rotate the `account`'s `DiemAccount::DiemAccount` `authentication_key` field to `new_key`.
-    /// `new_key` must be a valid authentication key that corresponds to an ed25519
-    /// public key as described [here](https://developers.diem.com/docs/core/accounts/#addresses-authentication-keys-and-cryptographic-keys),
-    /// and `account` must not have previously delegated its `DiemAccount::KeyRotationCapability`.
-    ///
-    /// # Parameters
-    /// | Name            | Type         | Description                                                                                       |
-    /// | ------          | ------       | -------------                                                                                     |
-    /// | `dr_account`    | `signer`     | The signer of the sending account of the write set transaction. May only be the Diem Root signer. |
-    /// | `account`       | `signer`     | Signer of account specified in the `execute_as` field of the write set transaction.               |
-    /// | `sliding_nonce` | `u64`        | The `sliding_nonce` (see: `SlidingNonce`) to be used for this transaction for Diem Root.          |
-    /// | `new_key`       | `vector<u8>` | New authentication key to be used for `account`.                                                  |
-    ///
-    /// # Common Abort Conditions
-    /// | Error Category             | Error Reason                                              | Description                                                                                                |
-    /// | ----------------           | --------------                                            | -------------                                                                                              |
-    /// | `Errors::NOT_PUBLISHED`    | `SlidingNonce::ESLIDING_NONCE`                            | A `SlidingNonce` resource is not published under `dr_account`.                                             |
-    /// | `Errors::INVALID_ARGUMENT` | `SlidingNonce::ENONCE_TOO_OLD`                            | The `sliding_nonce` in `dr_account` is too old and it's impossible to determine if it's duplicated or not. |
-    /// | `Errors::INVALID_ARGUMENT` | `SlidingNonce::ENONCE_TOO_NEW`                            | The `sliding_nonce` in `dr_account` is too far in the future.                                              |
-    /// | `Errors::INVALID_ARGUMENT` | `SlidingNonce::ENONCE_ALREADY_RECORDED`                   | The `sliding_nonce` in` dr_account` has been previously recorded.                                          |
-    /// | `Errors::INVALID_STATE`    | `DiemAccount::EKEY_ROTATION_CAPABILITY_ALREADY_EXTRACTED` | `account` has already delegated/extracted its `DiemAccount::KeyRotationCapability`.                        |
-    /// | `Errors::INVALID_ARGUMENT` | `DiemAccount::EMALFORMED_AUTHENTICATION_KEY`              | `new_key` was an invalid length.                                                                           |
-    ///
-    /// # Related Scripts
-    /// * `AccountAdministrationScripts::rotate_authentication_key`
-    /// * `AccountAdministrationScripts::rotate_authentication_key_with_nonce`
-    /// * `AccountAdministrationScripts::rotate_authentication_key_with_recovery_address`
-
-    public(script) fun rotate_authentication_key_with_nonce_admin(dr_account: signer, account: signer, sliding_nonce: u64, new_key: vector<u8>) {
-        SlidingNonce::record_nonce_or_abort(&dr_account, sliding_nonce);
-        let key_rotation_capability = DiemAccount::extract_key_rotation_capability(&account);
-        DiemAccount::rotate_authentication_key(&key_rotation_capability, new_key);
-        DiemAccount::restore_key_rotation_capability(key_rotation_capability);
-    }
-    spec fun rotate_authentication_key_with_nonce_admin {
-        use 0x1::Signer;
-        use 0x1::Errors;
-        use 0x1::Roles;
-
-        include DiemAccount::TransactionChecks{sender: account}; // properties checked by the prologue.
-        let account_addr = Signer::spec_address_of(account);
-        include SlidingNonce::RecordNonceAbortsIf{ account: dr_account, seq_nonce: sliding_nonce };
-        include DiemAccount::ExtractKeyRotationCapabilityAbortsIf;
-        let key_rotation_capability = DiemAccount::spec_get_key_rotation_cap(account_addr);
-        include DiemAccount::RotateAuthenticationKeyAbortsIf{cap: key_rotation_capability, new_authentication_key: new_key};
-
-        /// This rotates the authentication key of `account` to `new_key`
-        include DiemAccount::RotateAuthenticationKeyEnsures{addr: account_addr, new_authentication_key: new_key};
-
-        aborts_with [check]
-            Errors::INVALID_ARGUMENT,
-            Errors::INVALID_STATE,
-            Errors::NOT_PUBLISHED;
-
-        /// **Access Control:**
-        /// Only the Diem Root account can process the admin scripts [[H9]][PERMISSION].
-        requires Roles::has_diem_root_role(dr_account); /// This is ensured by DiemAccount::writeset_prologue.
-        /// The account can rotate its own authentication key unless
-        /// it has delegrated the capability [[H18]][PERMISSION][[J18]][PERMISSION].
-        include DiemAccount::AbortsIfDelegatedKeyRotationCapability{account: account};
     }
 
     /// # Summary
@@ -403,27 +193,6 @@ module AccountAdministrationScripts {
             ) {
         RecoveryAddress::rotate_authentication_key(&account, recovery_address, to_recover, new_key)
     }
-    spec fun rotate_authentication_key_with_recovery_address {
-        use 0x1::Errors;
-        use 0x1::DiemAccount;
-        use 0x1::Signer;
-
-        include DiemAccount::TransactionChecks{sender: account}; // properties checked by the prologue.
-        include RecoveryAddress::RotateAuthenticationKeyAbortsIf;
-        include RecoveryAddress::RotateAuthenticationKeyEnsures;
-
-        aborts_with [check]
-            Errors::NOT_PUBLISHED,
-            Errors::INVALID_ARGUMENT;
-
-        /// **Access Control:**
-        /// The delegatee at the recovery address has to hold the key rotation capability for
-        /// the address to recover. The address of the transaction signer has to be either
-        /// the delegatee's address or the address to recover [[H18]][PERMISSION][[J18]][PERMISSION].
-        let account_addr = Signer::spec_address_of(account);
-        aborts_if !RecoveryAddress::spec_holds_key_rotation_cap_for(recovery_address, to_recover) with Errors::INVALID_ARGUMENT;
-        aborts_if !(account_addr == recovery_address || account_addr == to_recover) with Errors::INVALID_ARGUMENT;
-    }
 
     /// # Summary
     /// Updates the url used for off-chain communication, and the public key used to verify dual
@@ -466,29 +235,6 @@ module AccountAdministrationScripts {
         DualAttestation::rotate_base_url(&account, new_url);
         DualAttestation::rotate_compliance_public_key(&account, new_key)
     }
-    spec fun rotate_dual_attestation_info {
-        use 0x1::Errors;
-        use 0x1::DiemAccount;
-        use 0x1::Signer;
-
-        include DiemAccount::TransactionChecks{sender: account}; // properties checked by the prologue.
-        include DualAttestation::RotateBaseUrlAbortsIf;
-        include DualAttestation::RotateBaseUrlEnsures;
-        include DualAttestation::RotateCompliancePublicKeyAbortsIf;
-        include DualAttestation::RotateCompliancePublicKeyEnsures;
-
-        aborts_with [check]
-            Errors::NOT_PUBLISHED,
-            Errors::INVALID_ARGUMENT;
-
-        include DualAttestation::RotateBaseUrlEmits;
-        include DualAttestation::RotateCompliancePublicKeyEmits;
-
-        /// **Access Control:**
-        /// Only the account having Credential can rotate the info.
-        /// Credential is granted to either a Parent VASP or a designated dealer [[H17]][PERMISSION].
-        include DualAttestation::AbortsIfNoCredential{addr: Signer::spec_address_of(account)};
-    }
 
     /// # Summary
     /// Rotates the authentication key in a `SharedEd25519PublicKey`. This transaction can be sent by
@@ -519,18 +265,6 @@ module AccountAdministrationScripts {
 
     public(script) fun rotate_shared_ed25519_public_key(account: signer, public_key: vector<u8>) {
         SharedEd25519PublicKey::rotate_key(&account, public_key)
-    }
-    spec fun rotate_shared_ed25519_public_key {
-        use 0x1::Errors;
-        use 0x1::DiemAccount;
-
-        include DiemAccount::TransactionChecks{sender: account}; // properties checked by the prologue.
-        include SharedEd25519PublicKey::RotateKeyAbortsIf{new_public_key: public_key};
-        include SharedEd25519PublicKey::RotateKeyEnsures{new_public_key: public_key};
-
-        aborts_with [check]
-            Errors::NOT_PUBLISHED,
-            Errors::INVALID_ARGUMENT;
     }
 
     /// # Summary
@@ -566,32 +300,6 @@ module AccountAdministrationScripts {
 
     public(script) fun create_recovery_address(account: signer) {
         RecoveryAddress::publish(&account, DiemAccount::extract_key_rotation_capability(&account))
-    }
-
-    spec fun create_recovery_address {
-        use 0x1::Signer;
-        use 0x1::Errors;
-
-        include DiemAccount::TransactionChecks{sender: account}; // properties checked by the prologue.
-        include DiemAccount::ExtractKeyRotationCapabilityAbortsIf;
-        include DiemAccount::ExtractKeyRotationCapabilityEnsures;
-
-        let account_addr = Signer::spec_address_of(account);
-        let rotation_cap = DiemAccount::spec_get_key_rotation_cap(account_addr);
-
-        include RecoveryAddress::PublishAbortsIf{
-            recovery_account: account,
-            rotation_cap: rotation_cap
-        };
-
-        ensures RecoveryAddress::spec_is_recovery_address(account_addr);
-        ensures len(RecoveryAddress::spec_get_rotation_caps(account_addr)) == 1;
-        ensures RecoveryAddress::spec_get_rotation_caps(account_addr)[0] == old(rotation_cap);
-
-        aborts_with [check]
-            Errors::INVALID_STATE,
-            Errors::INVALID_ARGUMENT,
-            Errors::ALREADY_PUBLISHED;
     }
 }
 }
