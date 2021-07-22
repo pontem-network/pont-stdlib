@@ -1,6 +1,7 @@
 address 0x1 {
 
 module Time {
+    use 0x1::CoreAddresses;
 
     const SECONDS_IN_DAY: u64 = 86400;
     const SECONDS_IN_MIN: u64 = 60;
@@ -17,12 +18,12 @@ module Time {
 
     /// Get the timestamp representing `now` in seconds.
     public fun now_seconds(): u64 acquires CurrentTimestamp {
-        borrow_global<CurrentTimestamp>(0x1).microseconds * MICROSECONDS_TO_SECONDS_FACTOR
+        now_microseconds() * MICROSECONDS_TO_SECONDS_FACTOR
     }
 
     /// Get the timestamp representing `now` in microseconds.
     public fun now_microseconds(): u64 acquires CurrentTimestamp {
-        borrow_global<CurrentTimestamp>(0x1).microseconds
+        borrow_global<CurrentTimestamp>(CoreAddresses::DIEM_ROOT_ADDRESS()).microseconds
     }
 
     /// Find days difference between given timestamp and now()
@@ -41,7 +42,7 @@ module Time {
 
     /// Helper function to determine if the blockchain is at genesis state.
     public fun is_genesis(): bool {
-        !exists<Self::CurrentTimestamp>(0x1)
+        !exists<Self::CurrentTimestamp>(CoreAddresses::DIEM_ROOT_ADDRESS())
     }
 
     public fun assert_genesis() {
