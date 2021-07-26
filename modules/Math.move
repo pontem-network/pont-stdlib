@@ -37,6 +37,10 @@ module Math {
         }
     }
 
+    public fun scale_to_decimals_of_max_precision(num: Num): u128 {
+        scale_to_decimals(num, MAX_DECIMALS)
+    }
+
     public fun add(val1: Num, val2: Num): Num {
         // if val1 <= u128 and val2 <= u128, combination could overflow
         let (num1, dec1) = num_unpack(val1);
@@ -125,9 +129,33 @@ module Math {
     }
 
     public fun equals(val1: Num, val2: Num): bool {
-        let num1 = scale_to_decimals(val1, 18);
-        let num2 = scale_to_decimals(val2, 18);
+        let num1 = scale_to_decimals_of_max_precision(val1);
+        let num2 = scale_to_decimals_of_max_precision(val2);
         num1 == num2
+    }
+
+    public fun lt(val1: Num, val2: Num): bool {
+        let num1 = scale_to_decimals_of_max_precision(val1);
+        let num2 = scale_to_decimals_of_max_precision(val2);
+        num1 < num2
+    }
+
+    public fun lte(val1: Num, val2: Num): bool {
+        let num1 = scale_to_decimals_of_max_precision(val1);
+        let num2 = scale_to_decimals_of_max_precision(val2);
+        num1 <= num2
+    }
+
+    public fun gt(val1: Num, val2: Num): bool {
+        let num1 = scale_to_decimals_of_max_precision(val1);
+        let num2 = scale_to_decimals_of_max_precision(val2);
+        num1 > num2
+    }
+
+    public fun gte(val1: Num, val2: Num): bool {
+        let num1 = scale_to_decimals_of_max_precision(val1);
+        let num2 = scale_to_decimals_of_max_precision(val2);
+        num1 >= num2
     }
 }
 }
