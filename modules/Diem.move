@@ -197,12 +197,10 @@ module Diem {
     /// accounts.
     public fun register_SCS_currency<CoinType: store>(
         dr_account: &signer,
-        tc_account: &signer,
         scaling_factor: u64,
         fractional_part: u64,
         currency_code: vector<u8>,
     ) {
-        Roles::assert_treasury_compliance(tc_account);
         register_currency<CoinType>(
             dr_account,
             false, // is_synthetic
