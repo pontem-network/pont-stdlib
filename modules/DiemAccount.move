@@ -285,19 +285,6 @@ module DiemAccount {
         );
     }
 
-    // Cancel the burn request from `preburn_address` and return the funds.
-    // Fails if the sender does not have a published MintCapability.
-    public fun cancel_burn<Token: store>(
-        account: &signer,
-        preburn_address: address,
-        amount: u64,
-    ) acquires DiemAccount, Balance, AccountOperationsCapability {
-        let coin = Diem::cancel_burn<Token>(account, preburn_address, amount);
-        // record both sender and recipient as `preburn_address`: the coins are moving from
-        // `preburn_address`'s `Preburn` resource to its balance
-        deposit(preburn_address, preburn_address, coin, x"", x"")
-    }
-
     /// Helper to withdraw `amount` from the given account balance and return the withdrawn Diem<Token>
     fun withdraw_from_balance<Token: store>(
         payer: address,
@@ -346,17 +333,6 @@ module DiemAccount {
             },
         );
         withdraw_from_balance<Token>(payer, payee, account_balance, amount)
-    }
-
-    /// Withdraw `amount` `Diem<Token>`'s from `cap.address` and send them to the `Preburn`
-    /// resource under `dd`.
-    public fun preburn<Token: store>(
-        dd: &signer,
-        cap: &WithdrawCapability,
-        amount: u64
-    ) acquires Balance, AccountOperationsCapability, DiemAccount {
-        Time::assert_operating();
-        Diem::preburn_to<Token>(dd, withdraw_from(cap, Signer::address_of(dd), amount, x""))
     }
 
     /// Return a unique capability granting permission to withdraw from the sender's account balance.

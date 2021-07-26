@@ -26,7 +26,7 @@ module Genesis {
         ChainId::initialize(dr_account, chain_id);
 
         // Currency setup
-        PONT::initialize(dr_account, tc_account);
+        PONT::initialize(dr_account);
 
         let dr_rotate_key_cap = DiemAccount::extract_key_rotation_capability(dr_account);
         DiemAccount::rotate_authentication_key(&dr_rotate_key_cap, dr_auth_key);
