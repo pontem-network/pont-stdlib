@@ -240,19 +240,6 @@ module Diem {
         move_to(tc_account, cap)
     }
 
-    /// Mints `amount` of currency. The `account` must hold a
-    /// `MintCapability<CoinType>` at the top-level in order for this call
-    /// to be successful.
-    public fun mint<CoinType: store>(account: &signer, value: u64): Diem<CoinType>
-    acquires CurrencyInfo, MintCapability {
-        let addr = Signer::address_of(account);
-        assert(exists<MintCapability<CoinType>>(addr), Errors::requires_capability(EMINT_CAPABILITY));
-        mint_with_capability(
-            value,
-            borrow_global<MintCapability<CoinType>>(addr)
-        )
-    }
-
     /// Burns the coins held in the first `Preburn` request in the `PreburnQueue`
     /// resource held under `preburn_address` that is equal to `amount`.
     /// Calls to this functions will fail if the `account` does not have a
@@ -291,36 +278,6 @@ module Diem {
             borrow_global<BurnCapability<CoinType>>(addr),
             amount,
         )
-    }
-
-    /// Mint a new `Diem` coin of `CoinType` currency worth `value`. The
-    /// caller must have a reference to a `MintCapability<CoinType>`. Only
-    /// the treasury compliance account or the `0x1::PONT` module can acquire such a
-    /// reference.
-    public fun mint_with_capability<CoinType: store>(
-        value: u64,
-        _capability: &MintCapability<CoinType>
-    ): Diem<CoinType> acquires CurrencyInfo {
-        assert_is_currency<CoinType>();
-        let currency_code = currency_code<CoinType>();
-        // update market cap resource to reflect minting
-        let info = borrow_global_mut<CurrencyInfo<CoinType>>(CoreAddresses::CURRENCY_INFO_ADDRESS());
-        assert(info.can_mint, Errors::invalid_state(EMINTING_NOT_ALLOWED));
-        assert(MAX_U128 - info.total_value >= (value as u128), Errors::limit_exceeded(ECURRENCY_INFO));
-        info.total_value = info.total_value + (value as u128);
-        // don't emit mint events for synthetic currenices as this does not
-        // change the total value of fiat currencies held on-chain.
-        if (!info.is_synthetic) {
-            Event::emit_event(
-                &mut info.mint_events,
-                MintEvent{
-                    amount: value,
-                    currency_code,
-                }
-            );
-        };
-
-        Diem<CoinType> { value }
     }
 
     /// Add the `coin` to the `preburn.to_burn` field in the `Preburn` resource
@@ -730,7 +687,7 @@ module Diem {
     /// adds the currency to the set of `RegisteredCurrencies`. It returns
     /// `MintCapability<CoinType>` and `BurnCapability<CoinType>` resources.
     public fun register_currency<CoinType: store>(
-        dr_account: &signer,
+        diem_root_acc: &signer,
         to_xdx_exchange_rate: FixedPoint32,
         is_synthetic: bool,
         scaling_factor: u64,
@@ -738,15 +695,15 @@ module Diem {
         currency_code: vector<u8>,
     ): (MintCapability<CoinType>, BurnCapability<CoinType>)
     {
-        Roles::assert_diem_root(dr_account);
+        Roles::assert_diem_root(diem_root_acc);
         // Operational constraint that it must be stored under a specific address.
-        CoreAddresses::assert_currency_info(dr_account);
+        CoreAddresses::assert_currency_info(diem_root_acc);
         assert(
-            !exists<CurrencyInfo<CoinType>>(Signer::address_of(dr_account)),
+            !exists<CurrencyInfo<CoinType>>(Signer::address_of(diem_root_acc)),
             Errors::already_published(ECURRENCY_INFO)
         );
         assert(0 < scaling_factor && scaling_factor <= MAX_SCALING_FACTOR, Errors::invalid_argument(ECURRENCY_INFO));
-        move_to(dr_account, CurrencyInfo<CoinType> {
+        move_to(diem_root_acc, CurrencyInfo<CoinType> {
             total_value: 0,
             preburn_value: 0,
             to_xdx_exchange_rate,
@@ -755,11 +712,11 @@ module Diem {
             fractional_part,
             currency_code: copy currency_code,
             can_mint: true,
-            mint_events: Event::new_event_handle<MintEvent>(dr_account),
-            burn_events: Event::new_event_handle<BurnEvent>(dr_account),
-            preburn_events: Event::new_event_handle<PreburnEvent>(dr_account),
-            cancel_burn_events: Event::new_event_handle<CancelBurnEvent>(dr_account),
-            exchange_rate_update_events: Event::new_event_handle<ToPONTExchangeRateUpdateEvent>(dr_account)
+            mint_events: Event::new_event_handle<MintEvent>(diem_root_acc),
+            burn_events: Event::new_event_handle<BurnEvent>(diem_root_acc),
+            preburn_events: Event::new_event_handle<PreburnEvent>(diem_root_acc),
+            cancel_burn_events: Event::new_event_handle<CancelBurnEvent>(diem_root_acc),
+            exchange_rate_update_events: Event::new_event_handle<ToPONTExchangeRateUpdateEvent>(diem_root_acc)
         });
         (MintCapability<CoinType>{}, BurnCapability<CoinType>{})
     }

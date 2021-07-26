@@ -15,7 +15,6 @@ module DiemAccount {
     use 0x1::Signer;
     use 0x1::VASP;
     use 0x1::Vector;
-    use 0x1::DesignatedDealer;
     use 0x1::Diem::{Self, Diem};
     use 0x1::Option::{Self, Option};
     use 0x1::Roles;
@@ -284,23 +283,6 @@ module DiemAccount {
                 metadata
             }
         );
-    }
-
-    /// Mint 'mint_amount' to 'designated_dealer_address' for 'tier_index' tier.
-    /// Max valid tier index is 3 since there are max 4 tiers per DD.
-    /// Sender should be treasury compliance account and receiver authorized DD.
-    public fun tiered_mint<Token: store>(
-        tc_account: &signer,
-        designated_dealer_address: address,
-        mint_amount: u64,
-        tier_index: u64,
-    ) acquires DiemAccount, Balance, AccountOperationsCapability {
-        let coin = DesignatedDealer::tiered_mint<Token>(
-            tc_account, mint_amount, designated_dealer_address, tier_index
-        );
-        // Use the reserved address as the payer because the funds did not come from an existing
-        // balance
-        deposit(CoreAddresses::VM_RESERVED_ADDRESS(), designated_dealer_address, coin, x"", x"")
     }
 
     // Cancel the burn request from `preburn_address` and return the funds.
@@ -600,29 +582,6 @@ module DiemAccount {
         Roles::grant_treasury_compliance_role(&new_account, dr_account);
         Event::publish_generator(&new_account);
         make_account(new_account, auth_key_prefix)
-    }
-
-    ///////////////////////////////////////////////////////////////////////////
-    // Designated Dealer API
-    ///////////////////////////////////////////////////////////////////////////
-
-    /// Create a designated dealer account at `new_account_address` with authentication key
-    /// `auth_key_prefix` | `new_account_address`, for non synthetic CoinType.
-    /// Creates Preburn resource under account 'new_account_address'
-    public fun create_designated_dealer<CoinType: store>(
-        creator_account: &signer,
-        new_account_address: address,
-        auth_key_prefix: vector<u8>,
-        human_name: vector<u8>,
-        add_all_currencies: bool,
-    ) acquires AccountOperationsCapability {
-        let new_dd_account = create_signer(new_account_address);
-        Event::publish_generator(&new_dd_account);
-        Roles::new_designated_dealer_role(creator_account, &new_dd_account);
-        DesignatedDealer::publish_designated_dealer_credential<CoinType>(&new_dd_account, creator_account, add_all_currencies);
-        add_currencies_for_account<CoinType>(&new_dd_account, add_all_currencies);
-        DualAttestation::publish_credential(&new_dd_account, creator_account, human_name);
-        make_account(new_dd_account, auth_key_prefix)
     }
 
     ///////////////////////////////////////////////////////////////////////////
