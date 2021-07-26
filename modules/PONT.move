@@ -7,7 +7,6 @@ address 0x1 {
 module PONT {
     use 0x1::AccountLimits;
     use 0x1::CoreAddresses;
-    use 0x1::FixedPoint32;
     use 0x1::Diem;
     use 0x1::Time;
 
@@ -28,7 +27,6 @@ module PONT {
         CoreAddresses::assert_currency_info(dr_account);
         let (mint_cap, burn_cap) = Diem::register_native_currency<PONT>(
             dr_account,
-            FixedPoint32::create_from_rational(1, 1), // exchange rate to PONT
             1000000, // scaling_factor = 10^6 // TODO ?
             100,     // fractional_part = 10^2 // TODO ?
             b"PONT",

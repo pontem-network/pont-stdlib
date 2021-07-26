@@ -2,11 +2,8 @@ address 0x1 {
 
 /// Module managing dual attestation.
 module DualAttestation {
-    use 0x1::CoreAddresses;
     use 0x1::Errors;
-    use 0x1::PONT::PONT;
     use 0x1::BCS;
-    use 0x1::Diem;
     use 0x1::Time;
     use 0x1::Roles;
     use 0x1::Signature;
@@ -39,11 +36,6 @@ module DualAttestation {
         compliance_key_rotation_events: EventHandle<ComplianceKeyRotationEvent>,
         /// Event handle for `base_url` rotation events. Emitted every time this `base_url` is rotated.
         base_url_rotation_events: EventHandle<BaseUrlRotationEvent>,
-    }
-
-    /// Struct to store the limit on-chain
-    struct Limit has key {
-        micro_xdx_limit: u64,
     }
 
     /// The message sent whenever the compliance public key for a `DualAttestation` resource is rotated.
@@ -80,8 +72,6 @@ module DualAttestation {
     /// The recipient of a dual attestation payment needs to set a base URL
     const EPAYEE_BASE_URL_NOT_SET: u64 = 6;
 
-    /// Value of the dual attestation limit at genesis
-    const INITIAL_DUAL_ATTESTATION_LIMIT: u64 = 1000;
     /// Suffix of every signed dual attestation message
     const DOMAIN_SEPARATOR: vector<u8> = b"@@$$DIEM_ATTEST$$@@";
     /// A year in microseconds
@@ -140,7 +130,6 @@ module DualAttestation {
             new_compliance_public_key: new_key,
             time_rotated_seconds: Time::now_seconds(),
         });
-
     }
 
     /// Return the human-readable name for the VASP account.
@@ -181,16 +170,7 @@ module DualAttestation {
     }
 
     /// Helper which returns true if dual attestion is required for a deposit.
-    fun dual_attestation_required<Token: store>(
-        payer: address, payee: address, deposit_value: u64
-    ): bool acquires Limit {
-        // travel rule applies for payments over a limit
-        let travel_rule_limit_microdiem = get_cur_microdiem_limit();
-        let approx_xdx_microdiem_value = Diem::approx_xdx_for_value<Token>(deposit_value);
-        let above_limit = approx_xdx_microdiem_value >= travel_rule_limit_microdiem;
-        if (!above_limit) {
-            return false
-        };
+    fun dual_attestation_required<Token: store>(payer: address, payee: address): bool {
         // self-deposits never require dual attestation
         if (payer == payee) {
             return false
@@ -198,7 +178,7 @@ module DualAttestation {
         // dual attestation is required if the amount is above the limit AND between distinct
         // VASPs
         VASP::is_vasp(payer) && VASP::is_vasp(payee) &&
-            VASP::parent_address(payer) != VASP::parent_address(payee)
+        VASP::parent_address(payer) != VASP::parent_address(payee)
     }
 
     /// Helper to construct a message for dual attestation.
@@ -260,45 +240,12 @@ module DualAttestation {
         value: u64,
         metadata: vector<u8>,
         metadata_signature: vector<u8>
-    ) acquires Credential, Limit {
+    ) acquires Credential {
         if (!Vector::is_empty(&metadata_signature) || // allow opt-in dual attestation
-            dual_attestation_required<Currency>(payer, payee, value)
+            dual_attestation_required<Currency>(payer, payee)
         ) {
-          assert_signature_is_valid(payer, payee, metadata_signature, metadata, value)
+            assert_signature_is_valid(payer, payee, metadata_signature, metadata, value)
         }
-    }
-
-    ///////////////////////////////////////////////////////////////////////////
-    // Creating and updating dual attestation limit
-    ///////////////////////////////////////////////////////////////////////////
-
-    /// Travel rule limit set during genesis
-    public fun initialize(dr_account: &signer) {
-        Time::assert_genesis();
-        CoreAddresses::assert_diem_root(dr_account); // operational constraint.
-        assert(!exists<Limit>(CoreAddresses::DIEM_ROOT_ADDRESS()), Errors::already_published(ELIMIT));
-        let initial_limit = (INITIAL_DUAL_ATTESTATION_LIMIT as u128) * (Diem::scaling_factor<PONT>() as u128);
-        assert(initial_limit <= MAX_U64, Errors::limit_exceeded(ELIMIT));
-        move_to(
-            dr_account,
-            Limit {
-                micro_xdx_limit: (initial_limit as u64)
-            }
-        )
-    }
-
-    /// Return the current dual attestation limit in microdiem
-    public fun get_cur_microdiem_limit(): u64 acquires Limit {
-        assert(exists<Limit>(CoreAddresses::DIEM_ROOT_ADDRESS()), Errors::not_published(ELIMIT));
-        borrow_global<Limit>(CoreAddresses::DIEM_ROOT_ADDRESS()).micro_xdx_limit
-    }
-
-    /// Set the dual attestation limit to `micro_diem_limit`.
-    /// Aborts if `tc_account` does not have the TreasuryCompliance role
-    public fun set_microdiem_limit(tc_account: &signer, micro_xdx_limit: u64) acquires Limit {
-        Roles::assert_treasury_compliance(tc_account);
-        assert(exists<Limit>(CoreAddresses::DIEM_ROOT_ADDRESS()), Errors::not_published(ELIMIT));
-        borrow_global_mut<Limit>(CoreAddresses::DIEM_ROOT_ADDRESS()).micro_xdx_limit = micro_xdx_limit;
     }
 }
 }

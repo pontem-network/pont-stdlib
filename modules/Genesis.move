@@ -7,7 +7,6 @@ address 0x1 {
 /// > Document which these are and in which order they are called.
 module Genesis {
     use 0x1::ChainId;
-    use 0x1::DualAttestation;
     use 0x1::DiemAccount;
     use 0x1::PONT;
 
@@ -28,9 +27,6 @@ module Genesis {
 
         // Currency setup
         PONT::initialize(dr_account, tc_account);
-        DualAttestation::initialize(
-            dr_account,
-        );
 
         let dr_rotate_key_cap = DiemAccount::extract_key_rotation_capability(dr_account);
         DiemAccount::rotate_authentication_key(&dr_rotate_key_cap, dr_auth_key);
