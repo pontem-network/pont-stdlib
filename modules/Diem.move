@@ -34,18 +34,6 @@ module Diem {
     /// of `CoinType` currency to be burned by the holder of it.
     struct BurnCapability<CoinType> has key, store {}
 
-    /// A `MintEvent` is emitted every time a Diem coin is minted. This
-    /// contains the `amount` minted (in base units of the currency being
-    /// minted) along with the `currency_code` for the coin(s) being
-    /// minted, and that is defined in the `currency_code` field of the
-    /// `CurrencyInfo` resource for the currency.
-    struct MintEvent has drop, store {
-        /// Funds added to the system
-        amount: u64,
-        /// ASCII encoded symbol for the coin type (e.g., "PONT")
-        currency_code: vector<u8>,
-    }
-
     /// A `BurnEvent` is emitted every time a non-synthetic Diem coin
     /// (i.e., a Diem coin with false `is_synthetic` field) is
     /// burned. It contains the `amount` burned in base units for the
@@ -121,8 +109,6 @@ module Diem {
         /// keep the currency in circulation while disallowing further
         /// creation of coins in the `CoinType` currency. Mutable.
         can_mint: bool,
-        /// Event stream for minting and where `MintEvent`s will be emitted.
-        mint_events: EventHandle<MintEvent>,
         /// Event stream for burning, and where `BurnEvent`s will be emitted.
         burn_events: EventHandle<BurnEvent>,
         /// Event stream for preburn requests, and where all
@@ -692,7 +678,6 @@ module Diem {
             fractional_part,
             currency_code: copy currency_code,
             can_mint: true,
-            mint_events: Event::new_event_handle<MintEvent>(diem_root_acc),
             burn_events: Event::new_event_handle<BurnEvent>(diem_root_acc),
             preburn_events: Event::new_event_handle<PreburnEvent>(diem_root_acc),
             cancel_burn_events: Event::new_event_handle<CancelBurnEvent>(diem_root_acc)
