@@ -34,6 +34,9 @@ module Roles {
     /// The signer didn't have the required Child VASP role
     const ECHILD_VASP: u64 = 9;
 
+    // PONTEM ONLY.
+    const RESTRICTED: u64= 101;
+
     ///////////////////////////////////////////////////////////////////////////
     // Role ID constants
     ///////////////////////////////////////////////////////////////////////////
@@ -364,6 +367,12 @@ module Roles {
         pragma opaque;
         include AbortsIfNotParentVaspOrChildVasp;
     }
+
+    /// PONTEM ONLY
+    public fun assert_restricted() {
+        assert(false, Errors::custom(RESTRICTED));
+    }
+    /// END PONTEM ONLY
 
 
     //**************** Module Specification ****************
