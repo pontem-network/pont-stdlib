@@ -214,7 +214,7 @@ module DiemConfig {
         dr_account: &signer,
         payload: Config,
     ): ModifyConfigCapability<Config> {
-        Roles::assert_restricted();
+        DiemTimestamp::assert_genesis();
         Roles::assert_diem_root(dr_account);
         assert(
             !exists<DiemConfig<Config>>(Signer::address_of(dr_account)),
@@ -243,7 +243,7 @@ module DiemConfig {
         dr_account: &signer,
         payload: Config
     ) {
-        Roles::assert_restricted();
+        DiemTimestamp::assert_genesis();
         let capability = publish_new_config_and_get_capability<Config>(dr_account, payload);
         assert(
             !exists<ModifyConfigCapability<Config>>(Signer::address_of(dr_account)),
