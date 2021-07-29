@@ -12,6 +12,7 @@ module Roles {
     use 0x1::CoreAddresses;
     use 0x1::Errors;
     use 0x1::DiemTimestamp;
+    use 0x1::Roles;
 
     /// A `RoleId` resource was in an unexpected state
     const EROLE_ID: u64 = 0;
@@ -113,6 +114,7 @@ module Roles {
         creating_account: &signer,
         new_account: &signer
     ) acquires RoleId {
+        Roles::assert_restricted();
         assert_diem_root(creating_account);
         grant_role(new_account, VALIDATOR_ROLE_ID);
     }
@@ -127,6 +129,7 @@ module Roles {
         creating_account: &signer,
         new_account: &signer,
     ) acquires RoleId {
+        Roles::assert_restricted();
         assert_diem_root(creating_account);
         grant_role(new_account, VALIDATOR_OPERATOR_ROLE_ID);
     }

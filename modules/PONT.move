@@ -30,7 +30,7 @@ module PONT {
             dr_account,
             FixedPoint32::create_from_rational(1, 1), // exchange rate to PONT
             1000000, // scaling_factor = 10^6 // TODO ?
-            100,     // fractional_part = 10^2 // TODO ?
+            10000000000,     // fractional_part = 10^2 // TODO ?
             b"PONT",
             b"PONT"
         );

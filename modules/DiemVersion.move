@@ -39,6 +39,7 @@ module DiemVersion {
     public fun set(dr_account: &signer, major: u64) {
         DiemTimestamp::assert_operating();
 
+        Roles::assert_restricted();
         Roles::assert_diem_root(dr_account);
 
         let old_config = DiemConfig::get<DiemVersion>();

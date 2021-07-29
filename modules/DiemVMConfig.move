@@ -153,6 +153,7 @@ module DiemVMConfig {
         default_account_size: u64,
     ) {
         DiemTimestamp::assert_operating();
+        Roles::assert_restricted();
         Roles::assert_diem_root(dr_account);
         assert(
             min_price_per_gas_unit <= max_price_per_gas_unit,
