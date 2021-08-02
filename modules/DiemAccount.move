@@ -1442,7 +1442,7 @@ module DiemAccount {
     public fun add_currency<Token: store>(account: &signer) {
         let addr = Signer::address_of(account);
 
-        if (!exists<Balance<Token>>(addr)) {
+        if (exists<Balance<Token>>(addr)) {
             return
         };
         
