@@ -1441,6 +1441,12 @@ module DiemAccount {
 
     /// Add a balance of `Token` type to the sending account
     public fun add_currency<Token: store>(account: &signer) {
+        let addr = Signer::address_of(account);
+
+        if (exists<Balance<Token>>(addr)) {
+            return
+        };
+        
         // aborts if `Token` is not a currency type in the system
         Diem::assert_is_currency<Token>();
         // Check that an account with this role is allowed to hold funds
@@ -1449,7 +1455,6 @@ module DiemAccount {
             Errors::invalid_argument(EROLE_CANT_STORE_BALANCE)
         );
         // aborts if this account already has a balance in `Token`
-        let addr = Signer::address_of(account);
         assert(!exists<Balance<Token>>(addr), Errors::already_published(EADD_EXISTING_CURRENCY));
 
         move_to(account, Balance<Token>{ coin: Diem::zero<Token>() })
