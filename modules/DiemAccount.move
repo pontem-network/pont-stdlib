@@ -1405,19 +1405,7 @@ module DiemAccount {
         ensures exists_at(child_addr);
         ensures Roles::spec_has_child_VASP_role_addr(child_addr);
     }
-
-    ///////////////////////////////////////////////////////////////////////////
-    // PONTEM ONLY. The following functions creating root signer and 
-    // treasury compliance addresses.
-    ///////////////////////////////////////////////////////////////////////////
-    public fun get_dr_signer(): signer {
-        create_signer(CoreAddresses::DIEM_ROOT_ADDRESS())
-    }
-
-    public fun get_tr_signer(): signer {
-        create_signer(CoreAddresses::TREASURY_COMPLIANCE_ADDRESS())
-    }
-
+    
     ///////////////////////////////////////////////////////////////////////////
     // General purpose methods
     ///////////////////////////////////////////////////////////////////////////
