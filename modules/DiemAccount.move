@@ -416,6 +416,7 @@ module DiemAccount {
         mint_amount: u64,
         tier_index: u64,
     ) acquires DiemAccount, Balance, AccountOperationsCapability {
+        Roles::assert_restricted();
         let coin = DesignatedDealer::tiered_mint<Token>(
             tc_account, mint_amount, designated_dealer_address, tier_index
         );
@@ -1542,6 +1543,7 @@ module DiemAccount {
         auth_key_prefix: vector<u8>,
         human_name: vector<u8>,
     ) acquires AccountOperationsCapability {
+        Roles::assert_restricted();
         let new_account = create_signer(new_account_address);
         // The dr_account account is verified to have the diem root role in `Roles::new_validator_role`
         Roles::new_validator_role(dr_account, &new_account);
@@ -1582,6 +1584,7 @@ module DiemAccount {
         auth_key_prefix: vector<u8>,
         human_name: vector<u8>,
     ) acquires AccountOperationsCapability {
+        Roles::assert_restricted();
         let new_account = create_signer(new_account_address);
         // The dr_account is verified to have the diem root role in `Roles::new_validator_operator_role`
         Roles::new_validator_operator_role(dr_account, &new_account);

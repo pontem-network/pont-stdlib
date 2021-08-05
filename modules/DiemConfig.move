@@ -178,6 +178,7 @@ module DiemConfig {
     /// Private function to temporarily halt reconfiguration.
     /// This function should only be used for offline WriteSet generation purpose and should never be invoked on chain.
     fun disable_reconfiguration(dr_account: &signer) {
+        Roles::assert_restricted();
         assert(
             Signer::address_of(dr_account) == CoreAddresses::DIEM_ROOT_ADDRESS(),
             Errors::requires_address(EDIEM_CONFIG)
@@ -190,6 +191,7 @@ module DiemConfig {
     /// Private function to resume reconfiguration.
     /// This function should only be used for offline WriteSet generation purpose and should never be invoked on chain.
     fun enable_reconfiguration(dr_account: &signer) acquires DisableReconfiguration {
+        Roles::assert_restricted();
         assert(
             Signer::address_of(dr_account) == CoreAddresses::DIEM_ROOT_ADDRESS(),
             Errors::requires_address(EDIEM_CONFIG)
@@ -212,6 +214,7 @@ module DiemConfig {
         dr_account: &signer,
         payload: Config,
     ): ModifyConfigCapability<Config> {
+        DiemTimestamp::assert_genesis();
         Roles::assert_diem_root(dr_account);
         assert(
             !exists<DiemConfig<Config>>(Signer::address_of(dr_account)),
@@ -240,6 +243,7 @@ module DiemConfig {
         dr_account: &signer,
         payload: Config
     ) {
+        DiemTimestamp::assert_genesis();
         let capability = publish_new_config_and_get_capability<Config>(dr_account, payload);
         assert(
             !exists<ModifyConfigCapability<Config>>(Signer::address_of(dr_account)),
@@ -271,6 +275,7 @@ module DiemConfig {
     public fun reconfigure(
         dr_account: &signer,
     ) acquires Configuration {
+        Roles::assert_restricted();
         Roles::assert_diem_root(dr_account);
         reconfigure_();
     }

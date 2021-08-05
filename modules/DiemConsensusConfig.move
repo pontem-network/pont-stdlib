@@ -31,6 +31,7 @@ module DiemConsensusConfig {
     public fun set(dr_account: &signer, config: vector<u8>) {
         DiemTimestamp::assert_operating();
 
+        Roles::assert_restricted();
         Roles::assert_diem_root(dr_account);
 
         DiemConfig::set(

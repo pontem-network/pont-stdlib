@@ -22,6 +22,7 @@ module ValidatorOperatorConfig {
         human_name: vector<u8>,
     ) {
         DiemTimestamp::assert_operating();
+        Roles::assert_restricted();
         Roles::assert_diem_root(dr_account);
         Roles::assert_validator_operator(validator_operator_account);
         assert(

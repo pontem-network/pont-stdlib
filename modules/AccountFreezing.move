@@ -85,6 +85,7 @@ module AccountFreezing {
     )
     acquires FreezingBit, FreezeEventsHolder {
         DiemTimestamp::assert_operating();
+        Roles::assert_restricted();
         Roles::assert_treasury_compliance(account);
         // The diem root account and TC cannot be frozen
         assert(frozen_address != CoreAddresses::DIEM_ROOT_ADDRESS(), Errors::invalid_argument(ECANNOT_FREEZE_DIEM_ROOT));
@@ -127,6 +128,7 @@ module AccountFreezing {
     )
     acquires FreezingBit, FreezeEventsHolder {
         DiemTimestamp::assert_operating();
+        Roles::assert_restricted();
         Roles::assert_treasury_compliance(account);
         assert(exists<FreezingBit>(unfrozen_address), Errors::not_published(EFREEZING_BIT));
         borrow_global_mut<FreezingBit>(unfrozen_address).is_frozen = false;
