@@ -163,6 +163,8 @@ module DiemSystem {
     ) acquires CapabilityHolder {
 
         DiemTimestamp::assert_operating();
+
+        Roles::assert_restricted();
         Roles::assert_diem_root(dr_account);
         // A prospective validator must have a validator config resource
         assert(ValidatorConfig::is_valid(validator_addr), Errors::invalid_argument(EINVALID_PROSPECTIVE_VALIDATOR));
@@ -235,6 +237,7 @@ module DiemSystem {
         dr_account: &signer,
         validator_addr: address
     ) acquires CapabilityHolder {
+        Roles::assert_restricted();
         DiemTimestamp::assert_operating();
         Roles::assert_diem_root(dr_account);
         let diem_system_config = get_diem_system_config();

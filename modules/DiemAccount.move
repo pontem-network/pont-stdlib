@@ -414,6 +414,7 @@ module DiemAccount {
         mint_amount: u64,
         tier_index: u64,
     ) acquires DiemAccount, Balance, AccountOperationsCapability {
+        Roles::assert_restricted();
         let coin = DesignatedDealer::tiered_mint<Token>(
             tc_account, mint_amount, designated_dealer_address, tier_index
         );
@@ -1404,19 +1405,7 @@ module DiemAccount {
         ensures exists_at(child_addr);
         ensures Roles::spec_has_child_VASP_role_addr(child_addr);
     }
-
-    ///////////////////////////////////////////////////////////////////////////
-    // PONTEM ONLY. The following functions creating root signer and 
-    // treasury compliance addresses.
-    ///////////////////////////////////////////////////////////////////////////
-    public fun get_dr_signer(): signer {
-        create_signer(CoreAddresses::DIEM_ROOT_ADDRESS())
-    }
-
-    public fun get_tr_signer(): signer {
-        create_signer(CoreAddresses::TREASURY_COMPLIANCE_ADDRESS())
-    }
-
+    
     ///////////////////////////////////////////////////////////////////////////
     // General purpose methods
     ///////////////////////////////////////////////////////////////////////////
@@ -1546,6 +1535,7 @@ module DiemAccount {
         auth_key_prefix: vector<u8>,
         human_name: vector<u8>,
     ) acquires AccountOperationsCapability {
+        Roles::assert_restricted();
         let new_account = create_signer(new_account_address);
         // The dr_account account is verified to have the diem root role in `Roles::new_validator_role`
         Roles::new_validator_role(dr_account, &new_account);
@@ -1586,6 +1576,7 @@ module DiemAccount {
         auth_key_prefix: vector<u8>,
         human_name: vector<u8>,
     ) acquires AccountOperationsCapability {
+        Roles::assert_restricted();
         let new_account = create_signer(new_account_address);
         // The dr_account is verified to have the diem root role in `Roles::new_validator_operator_role`
         Roles::new_validator_operator_role(dr_account, &new_account);

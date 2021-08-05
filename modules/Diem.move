@@ -267,6 +267,7 @@ module Diem {
         tc_account: &signer,
         cap: BurnCapability<CoinType>,
     ) {
+        Roles::assert_restricted();
         Roles::assert_treasury_compliance(tc_account);
         assert_is_currency<CoinType>();
         assert(
@@ -1477,6 +1478,7 @@ module Diem {
         tc_account: &signer,
         xdx_exchange_rate: FixedPoint32
     ) acquires CurrencyInfo {
+        Roles::assert_restricted();
         Roles::assert_treasury_compliance(tc_account);
         assert_is_currency<FromCoinType>();
         let currency_info = borrow_global_mut<CurrencyInfo<FromCoinType>>(CoreAddresses::CURRENCY_INFO_ADDRESS());
@@ -1542,6 +1544,7 @@ module Diem {
         can_mint: bool,
         )
     acquires CurrencyInfo {
+        DiemTimestamp::assert_genesis();
         Roles::assert_treasury_compliance(tc_account);
         assert_is_currency<CoinType>();
         let currency_info = borrow_global_mut<CurrencyInfo<CoinType>>(CoreAddresses::CURRENCY_INFO_ADDRESS());

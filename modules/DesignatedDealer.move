@@ -135,6 +135,7 @@ module DesignatedDealer {
         // compatibility, but it will be ignored.
         _tier_index: u64,
     ): Diem::Diem<CoinType> acquires Dealer, TierInfo {
+        Roles::assert_restricted();
         Roles::assert_treasury_compliance(tc_account);
         assert(amount > 0, Errors::invalid_argument(EINVALID_MINT_AMOUNT));
         assert(exists_at(dd_addr), Errors::not_published(EDEALER));
