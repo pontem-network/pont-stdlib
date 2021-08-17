@@ -17,7 +17,7 @@ module DiemConsensusConfig {
         Roles::assert_diem_root(dr_account);
         DiemConfig::publish_new_config(dr_account, DiemConsensusConfig { config: Vector::empty() });
     }
-    spec fun initialize {
+    spec initialize {
         /// Must abort if the signer does not have the DiemRoot role [[H12]][PERMISSION].
         include Roles::AbortsIfNotDiemRoot{account: dr_account};
 
@@ -31,7 +31,6 @@ module DiemConsensusConfig {
     public fun set(dr_account: &signer, config: vector<u8>) {
         DiemTimestamp::assert_operating();
 
-        Roles::assert_restricted();
         Roles::assert_diem_root(dr_account);
 
         DiemConfig::set(
@@ -39,7 +38,7 @@ module DiemConsensusConfig {
             DiemConsensusConfig { config }
         );
     }
-    spec fun set {
+    spec set {
         /// Must abort if the signer does not have the DiemRoot role [[H12]][PERMISSION].
         include Roles::AbortsIfNotDiemRoot{account: dr_account};
 

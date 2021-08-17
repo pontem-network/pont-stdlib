@@ -108,7 +108,7 @@ module DiemVMConfig {
             },
         );
     }
-    spec fun initialize {
+    spec initialize {
         let gas_constants = GasConstants {
             global_memory_per_byte_cost: 4,
             global_memory_per_byte_write_cost: 9,
@@ -153,7 +153,6 @@ module DiemVMConfig {
         default_account_size: u64,
     ) {
         DiemTimestamp::assert_operating();
-        Roles::assert_restricted();
         Roles::assert_diem_root(dr_account);
         assert(
             min_price_per_gas_unit <= max_price_per_gas_unit,
@@ -181,7 +180,7 @@ module DiemVMConfig {
 
         DiemConfig::set(dr_account, config);
     }
-    spec fun set_gas_constants {
+    spec set_gas_constants {
         include DiemTimestamp::AbortsIfNotOperating;
         /// No one can update DiemVMConfig except for the Diem Root account [[H11]][PERMISSION].
         include Roles::AbortsIfNotDiemRoot{account: dr_account};
@@ -192,8 +191,8 @@ module DiemVMConfig {
         ensures DiemConfig::spec_is_published<DiemVMConfig>();
         ensures DiemConfig::get<DiemVMConfig>() == DiemVMConfig {
             gas_schedule: GasSchedule {
-                instruction_schedule: old(config).gas_schedule.instruction_schedule,
-                native_schedule: old(config).gas_schedule.native_schedule,
+                instruction_schedule: config.gas_schedule.instruction_schedule,
+                native_schedule: config.gas_schedule.native_schedule,
                 gas_constants: GasConstants {
                         global_memory_per_byte_cost,
                         global_memory_per_byte_write_cost,
@@ -217,7 +216,7 @@ module DiemVMConfig {
     /// # Initialization
 
     spec module {
-        invariant [global] DiemTimestamp::is_operating() ==> DiemConfig::spec_is_published<DiemVMConfig>();
+        invariant DiemTimestamp::is_operating() ==> DiemConfig::spec_is_published<DiemVMConfig>();
     }
 
     /// # Access Control

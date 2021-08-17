@@ -50,7 +50,7 @@ module DiemTransactionPublishingOption {
             }
         );
     }
-    spec fun initialize {
+    spec initialize {
         /// Must abort if the signer does not have the DiemRoot role [[H11]][PERMISSION].
         include Roles::AbortsIfNotDiemRoot{account: dr_account};
 
@@ -79,7 +79,7 @@ module DiemTransactionPublishingOption {
             // fixed allowlist. check inclusion
             || Vector::contains(&publish_option.script_allow_list, hash)
     }
-    spec fun is_script_allowed {
+    spec is_script_allowed {
         include
             !Roles::has_diem_root_role(account) && !transactions_halted() && !Vector::is_empty(hash)
             ==> DiemConfig::AbortsIfNotPublished<DiemTransactionPublishingOption>{};
@@ -94,20 +94,19 @@ module DiemTransactionPublishingOption {
 
         publish_option.module_publishing_allowed || Roles::has_diem_root_role(account)
     }
-    spec fun is_module_allowed{
+    spec is_module_allowed{
         include DiemConfig::AbortsIfNotPublished<DiemTransactionPublishingOption>{};
     }
 
     /// Allow the execution of arbitrary script or not.
     public fun set_open_script(dr_account: &signer) {
-        Roles::assert_restricted();
         Roles::assert_diem_root(dr_account);
         let publish_option = DiemConfig::get<DiemTransactionPublishingOption>();
 
         publish_option.script_allow_list = Vector::empty();
         DiemConfig::set<DiemTransactionPublishingOption>(dr_account, publish_option);
     }
-    spec fun set_open_script {
+    spec set_open_script {
         /// Must abort if the signer does not have the DiemRoot role [[H11]][PERMISSION].
         include Roles::AbortsIfNotDiemRoot{account: dr_account};
 
@@ -117,7 +116,6 @@ module DiemTransactionPublishingOption {
 
     /// Allow module publishing from arbitrary sender or not.
     public fun set_open_module(dr_account: &signer, open_module: bool) {
-        Roles::assert_restricted();
         Roles::assert_diem_root(dr_account);
 
         let publish_option = DiemConfig::get<DiemTransactionPublishingOption>();
@@ -125,7 +123,7 @@ module DiemTransactionPublishingOption {
         publish_option.module_publishing_allowed = open_module;
         DiemConfig::set<DiemTransactionPublishingOption>(dr_account, publish_option);
     }
-    spec fun set_open_module {
+    spec set_open_module {
         /// Must abort if the signer does not have the DiemRoot role [[H11]][PERMISSION].
         include Roles::AbortsIfNotDiemRoot{account: dr_account};
 
@@ -135,7 +133,6 @@ module DiemTransactionPublishingOption {
 
     /// If called, transactions cannot be sent from any account except DiemRoot
     public fun halt_all_transactions(dr_account: &signer) {
-        Roles::assert_restricted();
         Roles::assert_diem_root(dr_account);
         assert(
             !exists<HaltAllTransactions>(Signer::address_of(dr_account)),
@@ -146,7 +143,6 @@ module DiemTransactionPublishingOption {
 
     /// If called, transactions can be sent from any account once again
     public fun resume_transactions(dr_account: &signer) acquires HaltAllTransactions {
-        Roles::assert_restricted();
         Roles::assert_diem_root(dr_account);
         let dr_address = Signer::address_of(dr_account);
         assert(
@@ -166,7 +162,7 @@ module DiemTransactionPublishingOption {
 
     /// # Initialization
     spec module {
-        invariant [global] DiemTimestamp::is_operating() ==>
+        invariant DiemTimestamp::is_operating() ==>
             DiemConfig::spec_is_published<DiemTransactionPublishingOption>();
     }
 
@@ -185,16 +181,16 @@ module DiemTransactionPublishingOption {
 
     /// # Helper Functions
     spec module {
-        define spec_is_script_allowed(account: signer, hash: vector<u8>): bool {
+        fun spec_is_script_allowed(account: signer, hash: vector<u8>): bool {
             let publish_option = DiemConfig::spec_get_config<DiemTransactionPublishingOption>();
             Roles::has_diem_root_role(account) || (!transactions_halted() && (
                 Vector::is_empty(hash) ||
                     (Vector::is_empty(publish_option.script_allow_list)
-                        || Vector::spec_contains(publish_option.script_allow_list, hash))
+                        || contains(publish_option.script_allow_list, hash))
             ))
         }
 
-        define spec_is_module_allowed(account: signer): bool {
+        fun spec_is_module_allowed(account: signer): bool {
             let publish_option = DiemConfig::spec_get_config<DiemTransactionPublishingOption>();
             publish_option.module_publishing_allowed || Roles::has_diem_root_role(account)
         }

@@ -14,6 +14,7 @@ module TreasuryComplianceScripts {
     use 0x1::AccountFreezing;
     use 0x1::DualAttestation;
     use 0x1::FixedPoint32;
+    use 0x1::DiemId;
 
     /// # Summary
     /// Cancels and returns the coins held in the preburn area under
@@ -68,7 +69,7 @@ module TreasuryComplianceScripts {
         DiemAccount::cancel_burn<Token>(&account, preburn_address, amount)
     }
 
-    spec fun cancel_burn_with_amount {
+    spec cancel_burn_with_amount {
         use 0x1::CoreAddresses;
         use 0x1::Errors;
         use 0x1::Diem;
@@ -81,13 +82,18 @@ module TreasuryComplianceScripts {
         let total_preburn_value = global<Diem::CurrencyInfo<Token>>(
             CoreAddresses::CURRENCY_INFO_ADDRESS()
         ).preburn_value;
+        let post post_total_preburn_value = global<Diem::CurrencyInfo<Token>>(
+            CoreAddresses::CURRENCY_INFO_ADDRESS()
+        ).preburn_value;
+
         let balance_at_addr = DiemAccount::balance<Token>(preburn_address);
+        let post post_balance_at_addr = DiemAccount::balance<Token>(preburn_address);
 
         /// The total value of preburn for `Token` should decrease by the preburned amount.
-        ensures total_preburn_value == old(total_preburn_value) - amount;
+        ensures post_total_preburn_value == total_preburn_value - amount;
 
         /// The balance of `Token` at `preburn_address` should increase by the preburned amount.
-        ensures balance_at_addr == old(balance_at_addr) + amount;
+        ensures post_balance_at_addr == balance_at_addr + amount;
 
         include Diem::CancelBurnWithCapEmits<Token>;
         include DiemAccount::DepositEmits<Token>{
@@ -167,7 +173,7 @@ module TreasuryComplianceScripts {
         SlidingNonce::record_nonce_or_abort(&account, sliding_nonce);
         Diem::burn<Token>(&account, preburn_address, amount)
     }
-    spec fun burn_with_amount {
+    spec burn_with_amount {
         use 0x1::Errors;
         use 0x1::DiemAccount;
 
@@ -240,7 +246,7 @@ module TreasuryComplianceScripts {
         DiemAccount::restore_withdraw_capability(withdraw_cap);
     }
 
-    spec fun preburn {
+    spec preburn {
         use 0x1::Errors;
         use 0x1::Signer;
         use 0x1::Diem;
@@ -374,7 +380,7 @@ module TreasuryComplianceScripts {
         );
     }
 
-    spec fun tiered_mint {
+    spec tiered_mint {
         use 0x1::Errors;
         use 0x1::Roles;
 
@@ -488,13 +494,13 @@ module TreasuryComplianceScripts {
     }
 
     /// # Summary
-    /// Update the dual attestation limit on-chain. Defined in terms of micro-PONT.  The transaction can
+    /// Update the dual attestation limit on-chain. Defined in terms of micro-XDX.  The transaction can
     /// only be sent by the Treasury Compliance account.  After this transaction all inter-VASP
     /// payments over this limit must be checked for dual attestation.
     ///
     /// # Technical Description
     /// Updates the `micro_xdx_limit` field of the `DualAttestation::Limit` resource published under
-    /// `0xA550C18`. The amount is set in micro-PONT.
+    /// `0xA550C18`. The amount is set in micro-XDX.
     ///
     /// # Parameters
     /// | Name                  | Type     | Description                                                                                     |
@@ -526,13 +532,13 @@ module TreasuryComplianceScripts {
     }
 
     /// # Summary
-    /// Update the rough on-chain exchange rate between a specified currency and PONT (as a conversion
-    /// to micro-PONT). The transaction can only be sent by the Treasury Compliance account. After this
+    /// Update the rough on-chain exchange rate between a specified currency and XDX (as a conversion
+    /// to micro-XDX). The transaction can only be sent by the Treasury Compliance account. After this
     /// transaction the updated exchange rate will be used for normalization of gas prices, and for
     /// dual attestation checking.
     ///
     /// # Technical Description
-    /// Updates the on-chain exchange rate from the given `Currency` to micro-PONT.  The exchange rate
+    /// Updates the on-chain exchange rate from the given `Currency` to micro-XDX.  The exchange rate
     /// is given by `new_exchange_rate_numerator/new_exchange_rate_denominator`.
     ///
     /// # Parameters
@@ -541,8 +547,8 @@ module TreasuryComplianceScripts {
     /// | `Currency`                      | Type     | The Move type for the `Currency` whose exchange rate is being updated. `Currency` must be an already-registered currency on-chain. |
     /// | `tc_account`                    | `signer` | The signer of the sending account of this transaction. Must be the Treasury Compliance account.                                    |
     /// | `sliding_nonce`                 | `u64`    | The `sliding_nonce` (see: `SlidingNonce`) to be used for the transaction.                                                          |
-    /// | `new_exchange_rate_numerator`   | `u64`    | The numerator for the new to micro-PONT exchange rate for `Currency`.                                                               |
-    /// | `new_exchange_rate_denominator` | `u64`    | The denominator for the new to micro-PONT exchange rate for `Currency`.                                                             |
+    /// | `new_exchange_rate_numerator`   | `u64`    | The numerator for the new to micro-XDX exchange rate for `Currency`.                                                               |
+    /// | `new_exchange_rate_denominator` | `u64`    | The denominator for the new to micro-XDX exchange rate for `Currency`.                                                             |
     ///
     /// # Common Abort Conditions
     /// | Error Category             | Error Reason                            | Description                                                                                |
@@ -574,7 +580,7 @@ module TreasuryComplianceScripts {
         );
         Diem::update_xdx_exchange_rate<Currency>(&tc_account, rate);
     }
-    spec fun update_exchange_rate {
+    spec update_exchange_rate {
         use 0x1::Errors;
         use 0x1::DiemAccount;
         use 0x1::Roles;
@@ -589,9 +595,9 @@ module TreasuryComplianceScripts {
                 new_exchange_rate_numerator,
                 new_exchange_rate_denominator
         );
-        include Diem::UpdatePONTExchangeRateAbortsIf<Currency>;
-        include Diem::UpdatePONTExchangeRateEnsures<Currency>{xdx_exchange_rate: rate};
-        include Diem::UpdatePONTExchangeRateEmits<Currency>{xdx_exchange_rate: rate};
+        include Diem::UpdateXDXExchangeRateAbortsIf<Currency>;
+        include Diem::UpdateXDXExchangeRateEnsures<Currency>{xdx_exchange_rate: rate};
+        include Diem::UpdateXDXExchangeRateEmits<Currency>{xdx_exchange_rate: rate};
 
         aborts_with [check]
             Errors::INVALID_ARGUMENT,
@@ -638,6 +644,90 @@ module TreasuryComplianceScripts {
         allow_minting: bool
     ) {
         Diem::update_minting_ability<Currency>(&tc_account, allow_minting);
+    }
+
+    /// # Summary
+    /// Add a DiemID domain to parent VASP account. The transaction can only be sent by
+    /// the Treasury Compliance account.
+    ///
+    /// # Technical Description
+    /// Adds a `DiemId::DiemIdDomain` to the `domains` field of the `DiemId::DiemIdDomains` resource published under
+    /// the account at `address`.
+    ///
+    /// # Parameters
+    /// | Name         | Type         | Description                                                                                     |
+    /// | ------       | ------       | -------------                                                                                   |
+    /// | `tc_account` | `signer`     | The signer of the sending account of this transaction. Must be the Treasury Compliance account. |
+    /// | `address`    | `address`    | The `address` of the parent VASP account that will have have `domain` added to its domains.     |
+    /// | `domain`     | `vector<u8>` | The domain to be added.                                                                         |
+    ///
+    /// # Common Abort Conditions
+    /// | Error Category             | Error Reason                             | Description                                                                                                                            |
+    /// | ----------------           | --------------                           | -------------                                                                                                                          |
+    /// | `Errors::REQUIRES_ROLE`    | `Roles::ETREASURY_COMPLIANCE`            | The sending account is not the Treasury Compliance account.                                                                            |
+    /// | `Errors::REQUIRES_ADDRESS` | `CoreAddresses::ETREASURY_COMPLIANCE`    | `tc_account` is not the Treasury Compliance account.                                                                                   |
+    /// | `Errors::NOT_PUBLISHED`    | `DiemId::EDIEM_ID_DOMAIN_MANAGER`        | The `DiemId::DiemIdDomainManager` resource is not yet published under the Treasury Compliance account.                                 |
+    /// | `Errors::NOT_PUBLISHED`    | `DiemId::EDIEM_ID_DOMAINS_NOT_PUBLISHED` | `address` does not have a `DiemId::DiemIdDomains` resource published under it.                                                         |
+    /// | `Errors::INVALID_ARGUMENT` | `DiemId::EDOMAIN_ALREADY_EXISTS`         | The `domain` already exists in the list of `DiemId::DiemIdDomain`s  in the `DiemId::DiemIdDomains` resource published under `address`. |
+    /// | `Errors::INVALID_ARGUMENT` | `DiemId::EINVALID_DIEM_ID_DOMAIN`        | The `domain` is greater in length than `DiemId::DOMAIN_LENGTH`.                                                                        |
+    public(script) fun add_diem_id_domain (
+        tc_account: signer,
+        address: address,
+        domain: vector<u8>,
+    ) {
+        DiemId::add_diem_id_domain(&tc_account, address, domain);
+    }
+    spec add_diem_id_domain {
+        use 0x1::Errors;
+        include DiemAccount::TransactionChecks{sender: tc_account}; // properties checked by the prologue.
+        include DiemId::AddDiemIdDomainAbortsIf;
+        include DiemId::AddDiemIdDomainEnsures;
+        include DiemId::AddDiemIdDomainEmits;
+        aborts_with [check]
+            Errors::REQUIRES_ROLE,
+            Errors::REQUIRES_ADDRESS,
+            Errors::NOT_PUBLISHED,
+            Errors::INVALID_ARGUMENT;
+    }
+
+    /// # Summary
+    /// Remove a DiemID domain from parent VASP account. The transaction can only be sent by
+    /// the Treasury Compliance account.
+    ///
+    /// # Technical Description
+    /// Removes a `DiemId::DiemIdDomain` from the `domains` field of the `DiemId::DiemIdDomains` resource published under
+    /// account with `address`.
+    ///
+    /// # Parameters
+    /// | Name         | Type         | Description                                                                                     |
+    /// | ------       | ------       | -------------                                                                                   |
+    /// | `tc_account` | `signer`     | The signer of the sending account of this transaction. Must be the Treasury Compliance account. |
+    /// | `address`    | `address`    | The `address` of parent VASP account that will update its domains.                              |
+    /// | `domain`     | `vector<u8>` | The domain name.                                                                                |
+    ///
+    /// # Common Abort Conditions
+    /// | Error Category             | Error Reason                             | Description                                                                                                                            |
+    /// | ----------------           | --------------                           | -------------                                                                                                                          |
+    /// | `Errors::REQUIRES_ROLE`    | `Roles::ETREASURY_COMPLIANCE`            | The sending account is not the Treasury Compliance account.                                                                            |
+    /// | `Errors::REQUIRES_ADDRESS` | `CoreAddresses::ETREASURY_COMPLIANCE`    | `tc_account` is not the Treasury Compliance account.                                                                                   |
+    /// | `Errors::NOT_PUBLISHED`    | `DiemId::EDIEM_ID_DOMAIN_MANAGER`        | The `DiemId::DiemIdDomainManager` resource is not yet published under the Treasury Compliance account.                                 |
+    /// | `Errors::NOT_PUBLISHED`    | `DiemId::EDIEM_ID_DOMAINS_NOT_PUBLISHED` | `address` does not have a `DiemId::DiemIdDomains` resource published under it.                                                         |
+    /// | `Errors::INVALID_ARGUMENT` | `DiemId::EINVALID_DIEM_ID_DOMAIN`        | The `domain` is greater in length than `DiemId::DOMAIN_LENGTH`.                                                                        |
+    /// | `Errors::INVALID_ARGUMENT` | `DiemId::EDOMAIN_NOT_FOUND`              | The `domain` does not exist in the list of `DiemId::DiemIdDomain`s  in the `DiemId::DiemIdDomains` resource published under `address`. |
+    public(script) fun remove_diem_id_domain (
+        tc_account: signer,
+        address: address,
+        domain: vector<u8>,
+    ) {
+        DiemId::remove_diem_id_domain(&tc_account, address, domain);
+    }
+    spec remove_diem_id_domain {
+        use 0x1::Errors;
+        aborts_with [check]
+            Errors::REQUIRES_ROLE,
+            Errors::REQUIRES_ADDRESS,
+            Errors::NOT_PUBLISHED,
+            Errors::INVALID_ARGUMENT;
     }
 }
 }
