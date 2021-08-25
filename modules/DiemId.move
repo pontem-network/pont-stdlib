@@ -9,6 +9,7 @@ module DiemId {
     use 0x1::Roles;
     use 0x1::Errors;
     use 0x1::Signer;
+    use 0x1::DiemTimestamp;
 
     /// This resource holds an entity's domain names needed to send and receive payments using diem IDs.
     struct DiemIdDomains has key {
@@ -121,6 +122,7 @@ module DiemId {
     public fun publish_diem_id_domain_manager(
         tc_account : &signer,
     ) {
+        DiemTimestamp::assert_genesis();
         Roles::assert_treasury_compliance(tc_account);
         assert(
             !exists<DiemIdDomainManager>(Signer::address_of(tc_account)),
@@ -215,6 +217,7 @@ module DiemId {
         address: address,
         domain: vector<u8>,
     ) acquires DiemIdDomainManager, DiemIdDomains {
+        Roles::assert_restricted();
         Roles::assert_treasury_compliance(tc_account);
         assert(tc_domain_manager_exists(), Errors::not_published(EDIEM_ID_DOMAIN_MANAGER));
         assert(

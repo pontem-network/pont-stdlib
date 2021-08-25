@@ -1451,7 +1451,10 @@ module DiemAccount {
         );
         // aborts if this account already has a balance in `Token`
         let addr = Signer::address_of(account);
-        assert(!exists<Balance<Token>>(addr), Errors::already_published(EADD_EXISTING_CURRENCY));
+
+        if (exists<Balance<Token>>(addr)) {
+            return
+        };
 
         move_to(account, Balance<Token>{ coin: Diem::zero<Token>() })
     }
