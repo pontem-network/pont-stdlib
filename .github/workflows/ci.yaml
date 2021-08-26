@@ -25,4 +25,4 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Test
-        run: ./dove test
+        run: dove test
