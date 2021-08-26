@@ -70,7 +70,7 @@ module Roles {
         // Grant the role to the diem root account
         grant_role(dr_account, DIEM_ROOT_ROLE_ID);
     }
-    spec fun grant_diem_root_role {
+    spec grant_diem_root_role {
         include DiemTimestamp::AbortsIfNotGenesis;
         include CoreAddresses::AbortsIfNotDiemRoot{account: dr_account};
         include GrantRole{addr: Signer::address_of(dr_account), role_id: DIEM_ROOT_ROLE_ID};
@@ -87,7 +87,7 @@ module Roles {
         // Grant the TC role to the treasury_compliance_account
         grant_role(treasury_compliance_account, TREASURY_COMPLIANCE_ROLE_ID);
     }
-    spec fun grant_treasury_compliance_role {
+    spec grant_treasury_compliance_role {
         include DiemTimestamp::AbortsIfNotGenesis;
         include CoreAddresses::AbortsIfNotTreasuryCompliance{account: treasury_compliance_account};
         include AbortsIfNotDiemRoot{account: dr_account};
@@ -103,7 +103,7 @@ module Roles {
         assert_treasury_compliance(creating_account);
         grant_role(new_account, DESIGNATED_DEALER_ROLE_ID);
     }
-    spec fun new_designated_dealer_role {
+    spec new_designated_dealer_role {
         include AbortsIfNotTreasuryCompliance{account: creating_account};
         include GrantRole{addr: Signer::address_of(new_account), role_id: DESIGNATED_DEALER_ROLE_ID};
     }
@@ -118,7 +118,7 @@ module Roles {
         assert_diem_root(creating_account);
         grant_role(new_account, VALIDATOR_ROLE_ID);
     }
-    spec fun new_validator_role {
+    spec new_validator_role {
         include AbortsIfNotDiemRoot{account: creating_account};
         include GrantRole{addr: Signer::address_of(new_account), role_id: VALIDATOR_ROLE_ID};
     }
@@ -133,7 +133,7 @@ module Roles {
         assert_diem_root(creating_account);
         grant_role(new_account, VALIDATOR_OPERATOR_ROLE_ID);
     }
-    spec fun new_validator_operator_role {
+    spec new_validator_operator_role {
         include AbortsIfNotDiemRoot{account: creating_account};
         include GrantRole{addr: Signer::address_of(new_account), role_id: VALIDATOR_OPERATOR_ROLE_ID};
     }
@@ -147,7 +147,7 @@ module Roles {
         assert_treasury_compliance(creating_account);
         grant_role(new_account, PARENT_VASP_ROLE_ID);
     }
-    spec fun new_parent_vasp_role {
+    spec new_parent_vasp_role {
         include AbortsIfNotTreasuryCompliance{account: creating_account};
         include GrantRole{addr: Signer::address_of(new_account), role_id: PARENT_VASP_ROLE_ID};
     }
@@ -161,7 +161,7 @@ module Roles {
         assert_parent_vasp_role(creating_account);
         grant_role(new_account, CHILD_VASP_ROLE_ID);
     }
-    spec fun new_child_vasp_role {
+    spec new_child_vasp_role {
         include AbortsIfNotParentVasp{account: creating_account};
         include GrantRole{addr: Signer::address_of(new_account), role_id: CHILD_VASP_ROLE_ID};
     }
@@ -171,7 +171,7 @@ module Roles {
         assert(!exists<RoleId>(Signer::address_of(account)), Errors::already_published(EROLE_ID));
         move_to(account, RoleId { role_id });
     }
-    spec fun grant_role {
+    spec grant_role {
         pragma opaque;
         include GrantRole{addr: Signer::address_of(account)};
         let addr = Signer::spec_address_of(account);
@@ -250,7 +250,7 @@ module Roles {
         assert(exists<RoleId>(addr), Errors::not_published(EROLE_ID));
         assert(borrow_global<RoleId>(addr).role_id == DIEM_ROOT_ROLE_ID, Errors::requires_role(EDIEM_ROOT));
     }
-    spec fun assert_diem_root {
+    spec assert_diem_root {
         pragma opaque;
         include CoreAddresses::AbortsIfNotDiemRoot;
         include AbortsIfNotDiemRoot;
@@ -266,7 +266,7 @@ module Roles {
             Errors::requires_role(ETREASURY_COMPLIANCE)
         )
     }
-    spec fun assert_treasury_compliance {
+    spec assert_treasury_compliance {
         pragma opaque;
         include AbortsIfNotTreasuryCompliance;
     }
@@ -280,7 +280,7 @@ module Roles {
             Errors::requires_role(EPARENT_VASP)
         )
     }
-    spec fun assert_parent_vasp_role {
+    spec assert_parent_vasp_role {
         pragma opaque;
         include AbortsIfNotParentVasp;
     }
@@ -294,7 +294,7 @@ module Roles {
             Errors::requires_role(ECHILD_VASP)
         )
     }
-    spec fun assert_child_vasp_role {
+    spec assert_child_vasp_role {
         pragma opaque;
         include AbortsIfNotChildVasp{account: Signer::address_of(account)};
     }
@@ -309,7 +309,7 @@ module Roles {
             Errors::requires_role(EDESIGNATED_DEALER)
         )
     }
-    spec fun assert_designated_dealer {
+    spec assert_designated_dealer {
         pragma opaque;
         include AbortsIfNotDesignatedDealer;
     }
@@ -323,7 +323,7 @@ module Roles {
             Errors::requires_role(EVALIDATOR)
         )
     }
-    spec fun assert_validator {
+    spec assert_validator {
         pragma opaque;
         include AbortsIfNotValidator{validator_addr: Signer::address_of(validator_account)};
     }
@@ -337,7 +337,7 @@ module Roles {
             Errors::requires_role(EVALIDATOR_OPERATOR)
         )
     }
-    spec fun assert_validator_operator {
+    spec assert_validator_operator {
         pragma opaque;
         include AbortsIfNotValidatorOperator{validator_operator_addr: Signer::spec_address_of(validator_operator_account)};
     }
@@ -352,7 +352,7 @@ module Roles {
             Errors::requires_role(EPARENT_VASP_OR_DESIGNATED_DEALER)
         );
     }
-    spec fun assert_parent_vasp_or_designated_dealer {
+    spec assert_parent_vasp_or_designated_dealer {
         pragma opaque;
         include AbortsIfNotParentVaspOrDesignatedDealer;
     }
@@ -366,7 +366,7 @@ module Roles {
             Errors::requires_role(EPARENT_VASP_OR_CHILD_VASP)
         );
     }
-    spec fun assert_parent_vasp_or_child_vasp {
+    spec assert_parent_vasp_or_child_vasp {
         pragma opaque;
         include AbortsIfNotParentVaspOrChildVasp;
     }
@@ -385,7 +385,7 @@ module Roles {
 
     /// Once an account at an address is granted a role it will remain an account role for all time.
     spec module {
-        invariant update [global]
+        invariant update
             forall addr: address where old(exists<RoleId>(addr)):
                 exists<RoleId>(addr) && old(global<RoleId>(addr).role_id) == global<RoleId>(addr).role_id;
     }
@@ -484,43 +484,43 @@ module Roles {
     /// # Helper Functions and Schemas
 
     spec module {
-        define spec_get_role_id(addr: address): u64 {
+        fun spec_get_role_id(addr: address): u64 {
             global<RoleId>(addr).role_id
         }
 
-        define spec_has_role_id_addr(addr: address, role_id: u64): bool {
+        fun spec_has_role_id_addr(addr: address, role_id: u64): bool {
             exists<RoleId>(addr) && global<RoleId>(addr).role_id == role_id
         }
 
-        define spec_has_diem_root_role_addr(addr: address): bool {
+        fun spec_has_diem_root_role_addr(addr: address): bool {
             spec_has_role_id_addr(addr, DIEM_ROOT_ROLE_ID)
         }
 
-        define spec_has_treasury_compliance_role_addr(addr: address): bool {
+        fun spec_has_treasury_compliance_role_addr(addr: address): bool {
             spec_has_role_id_addr(addr, TREASURY_COMPLIANCE_ROLE_ID)
         }
 
-        define spec_has_designated_dealer_role_addr(addr: address): bool {
+        fun spec_has_designated_dealer_role_addr(addr: address): bool {
             spec_has_role_id_addr(addr, DESIGNATED_DEALER_ROLE_ID)
         }
 
-        define spec_has_validator_role_addr(addr: address): bool {
+        fun spec_has_validator_role_addr(addr: address): bool {
             spec_has_role_id_addr(addr, VALIDATOR_ROLE_ID)
         }
 
-        define spec_has_validator_operator_role_addr(addr: address): bool {
+        fun spec_has_validator_operator_role_addr(addr: address): bool {
             spec_has_role_id_addr(addr, VALIDATOR_OPERATOR_ROLE_ID)
         }
 
-        define spec_has_parent_VASP_role_addr(addr: address): bool {
+        fun spec_has_parent_VASP_role_addr(addr: address): bool {
             spec_has_role_id_addr(addr, PARENT_VASP_ROLE_ID)
         }
 
-        define spec_has_child_VASP_role_addr(addr: address): bool {
+        fun spec_has_child_VASP_role_addr(addr: address): bool {
             spec_has_role_id_addr(addr, CHILD_VASP_ROLE_ID)
         }
 
-        define spec_can_hold_balance_addr(addr: address): bool {
+        fun spec_can_hold_balance_addr(addr: address): bool {
             spec_has_parent_VASP_role_addr(addr) ||
                 spec_has_child_VASP_role_addr(addr) ||
                 spec_has_designated_dealer_role_addr(addr)

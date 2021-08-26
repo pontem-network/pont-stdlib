@@ -67,7 +67,7 @@ module DiemConfig {
             }
         );
     }
-    spec fun initialize {
+    spec initialize {
         pragma opaque;
         include InitializeAbortsIf;
         include InitializeEnsures;
@@ -82,9 +82,9 @@ module DiemConfig {
     }
     spec schema InitializeEnsures {
         ensures spec_has_config();
-        let new_config = global<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
-        ensures new_config.epoch == 0;
-        ensures new_config.last_reconfiguration_time == 0;
+        let post post_config = global<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        ensures post_config.epoch == 0;
+        ensures post_config.last_reconfiguration_time == 0;
     }
 
 
@@ -95,7 +95,7 @@ module DiemConfig {
         assert(exists<DiemConfig<Config>>(addr), Errors::not_published(EDIEM_CONFIG));
         *&borrow_global<DiemConfig<Config>>(addr).payload
     }
-    spec fun get {
+    spec get {
         pragma opaque;
         include AbortsIfNotPublished<Config>;
         ensures result == get<Config>();
@@ -120,7 +120,7 @@ module DiemConfig {
 
         reconfigure_();
     }
-    spec fun set {
+    spec set {
         /// TODO: turned off verification until we solve the
         /// generic type/specific invariant issue
         pragma opaque, verify = false;
@@ -163,7 +163,7 @@ module DiemConfig {
         config.payload = payload;
         reconfigure_();
     }
-    spec fun set_with_capability_and_reconfigure {
+    spec set_with_capability_and_reconfigure {
         /// TODO: turned off verification until we solve the
         /// generic type/specific invariant issue
         pragma opaque, verify = false;
@@ -223,7 +223,7 @@ module DiemConfig {
         move_to(dr_account, DiemConfig { payload });
         ModifyConfigCapability<Config> {}
     }
-    spec fun publish_new_config_and_get_capability {
+    spec publish_new_config_and_get_capability {
         /// TODO: turned off verification until we solve the
         /// generic type/specific invariant issue
         pragma opaque, verify = false;
@@ -251,7 +251,7 @@ module DiemConfig {
         );
         move_to(dr_account, capability);
     }
-    spec fun publish_new_config {
+    spec publish_new_config {
         pragma opaque;
         modifies global<DiemConfig<Config>>(CoreAddresses::DIEM_ROOT_ADDRESS());
         modifies global<ModifyConfigCapability<Config>>(CoreAddresses::DIEM_ROOT_ADDRESS());
@@ -279,7 +279,7 @@ module DiemConfig {
         Roles::assert_diem_root(dr_account);
         reconfigure_();
     }
-    spec fun reconfigure {
+    spec reconfigure {
         pragma opaque;
         modifies global<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
         include Roles::AbortsIfNotDiemRoot{account: dr_account};
@@ -324,29 +324,30 @@ module DiemConfig {
             },
         );
     }
-    spec define spec_reconfigure_omitted(): bool {
+    spec fun spec_reconfigure_omitted(): bool {
        DiemTimestamp::is_genesis() || DiemTimestamp::spec_now_microseconds() == 0 || !reconfiguration_enabled()
     }
-    spec fun reconfigure_ {
+    spec reconfigure_ {
         pragma opaque;
         modifies global<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
         ensures old(spec_has_config()) == spec_has_config();
         let config = global<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        let post post_config = global<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
         let now = DiemTimestamp::spec_now_microseconds();
-        let epoch = config.epoch;
+        let post post_now = DiemTimestamp::spec_now_microseconds();
 
         include !spec_reconfigure_omitted() || (config.last_reconfiguration_time == now)
             ==> InternalReconfigureAbortsIf && ReconfigureAbortsIf;
 
-        ensures spec_reconfigure_omitted() || (old(config).last_reconfiguration_time == now)
-            ==> config == old(config);
+        ensures spec_reconfigure_omitted() || (config.last_reconfiguration_time == now)
+            ==> post_config == config;
 
         ensures !(spec_reconfigure_omitted() || (config.last_reconfiguration_time == now))
-            ==> config ==
+            ==> post_config ==
                 update_field(
-                update_field(old(config),
-                    epoch, old(config.epoch) + 1),
-                    last_reconfiguration_time, now);
+                update_field(config,
+                    epoch, config.epoch + 1),
+                    last_reconfiguration_time, post_now);
         include ReconfigureEmits;
     }
     /// The following schema describes aborts conditions which we do not want to be propagated to the verification
@@ -372,12 +373,13 @@ module DiemConfig {
     }
     spec schema ReconfigureEmits {
         let config = global<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
-        let now = DiemTimestamp::spec_now_microseconds();
-        let msg = NewEpochEvent {
-            epoch: config.epoch,
+        let post post_config = global<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        let post now = DiemTimestamp::spec_now_microseconds();
+        let post msg = NewEpochEvent {
+            epoch: post_config.epoch,
         };
         let handle = config.events;
-        emits msg to handle if (!spec_reconfigure_omitted() && now != old(config).last_reconfiguration_time);
+        emits msg to handle if (!spec_reconfigure_omitted() && now != config.last_reconfiguration_time);
     }
 
     /// Emit a `NewEpochEvent` event. This function will be invoked by genesis directly to generate the very first
@@ -395,10 +397,10 @@ module DiemConfig {
             },
         );
     }
-    spec fun emit_genesis_reconfiguration_event {
-        let config = global<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
-        let handle = config.events;
-        let msg = NewEpochEvent {
+    spec emit_genesis_reconfiguration_event {
+        let post config = global<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        let post handle = config.events;
+        let post msg = NewEpochEvent {
                 epoch: config.epoch,
         };
         emits msg to handle;
@@ -412,42 +414,42 @@ module DiemConfig {
     /// # Initialization
     spec module {
         /// After genesis, the `Configuration` is published.
-        invariant [global] DiemTimestamp::is_operating() ==> spec_has_config();
+        invariant DiemTimestamp::is_operating() ==> spec_has_config();
     }
 
     /// # Invariants
     spec module {
         /// Configurations are only stored at the diem root address.
-        invariant [global]
+        invariant
             forall config_address: address, config_type: type where exists<DiemConfig<config_type>>(config_address):
                 config_address == CoreAddresses::DIEM_ROOT_ADDRESS();
 
         /// After genesis, no new configurations are added.
-        invariant update [global]
+        invariant update
             DiemTimestamp::is_operating() ==>
                 (forall config_type: type where spec_is_published<config_type>(): old(spec_is_published<config_type>()));
 
         /// Published configurations are persistent.
-        invariant update [global]
+        invariant update
             (forall config_type: type where old(spec_is_published<config_type>()): spec_is_published<config_type>());
 
         /// If `ModifyConfigCapability<Config>` is published, it is persistent.
-        invariant update [global] forall config_type: type
+        invariant update forall config_type: type
             where old(exists<ModifyConfigCapability<config_type>>(CoreAddresses::DIEM_ROOT_ADDRESS())):
                 exists<ModifyConfigCapability<config_type>>(CoreAddresses::DIEM_ROOT_ADDRESS());
     }
 
     /// # Helper Functions
     spec module {
-        define spec_has_config(): bool {
+        fun spec_has_config(): bool {
             exists<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS())
         }
 
-        define spec_is_published<Config>(): bool {
+        fun spec_is_published<Config>(): bool {
             exists<DiemConfig<Config>>(CoreAddresses::DIEM_ROOT_ADDRESS())
         }
 
-        define spec_get_config<Config>(): Config {
+        fun spec_get_config<Config>(): Config {
             global<DiemConfig<Config>>(CoreAddresses::DIEM_ROOT_ADDRESS()).payload
         }
     }

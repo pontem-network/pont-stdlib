@@ -29,7 +29,7 @@ module RegisteredCurrencies {
             RegisteredCurrencies { currency_codes: Vector::empty() }
         );
     }
-    spec fun initialize {
+    spec initialize {
         include InitializeAbortsIf;
         include InitializeEnsures;
     }
@@ -60,7 +60,7 @@ module RegisteredCurrencies {
         Vector::push_back(&mut config.currency_codes, currency_code);
         DiemConfig::set(dr_account, config);
     }
-    spec fun add_currency_code {
+    spec add_currency_code {
         include AddCurrencyCodeAbortsIf;
         include AddCurrencyCodeEnsures;
     }
@@ -69,7 +69,7 @@ module RegisteredCurrencies {
         currency_code: vector<u8>;
         include DiemConfig::SetAbortsIf<RegisteredCurrencies>{ account: dr_account };
         /// The same currency code can be only added once.
-        aborts_if Vector::spec_contains(
+        aborts_if contains(
             DiemConfig::get<RegisteredCurrencies>().currency_codes,
             currency_code
         ) with Errors::INVALID_ARGUMENT;
@@ -90,14 +90,14 @@ module RegisteredCurrencies {
 
     spec module {
         /// Global invariant that currency config is always available after genesis.
-        invariant [global] DiemTimestamp::is_operating() ==> DiemConfig::spec_is_published<RegisteredCurrencies>();
+        invariant DiemTimestamp::is_operating() ==> DiemConfig::spec_is_published<RegisteredCurrencies>();
     }
 
     /// # Helper Functions
 
     spec module {
         /// Helper to get the currency code vector.
-        define get_currency_codes(): vector<vector<u8>> {
+        fun get_currency_codes(): vector<vector<u8>> {
             DiemConfig::get<RegisteredCurrencies>().currency_codes
         }
     }

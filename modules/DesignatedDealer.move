@@ -76,7 +76,7 @@ module DesignatedDealer {
             add_currency<CoinType>(dd, tc_account);
         };
     }
-    spec fun publish_designated_dealer_credential {
+    spec publish_designated_dealer_credential {
         pragma opaque;
 
         let dd_addr = Signer::spec_address_of(dd);
@@ -84,14 +84,14 @@ module DesignatedDealer {
         include Roles::AbortsIfNotTreasuryCompliance{account: tc_account};
         include Roles::AbortsIfNotDesignatedDealer{account: dd};
         aborts_if exists<Dealer>(dd_addr) with Errors::ALREADY_PUBLISHED;
-        include if (add_all_currencies) AddCurrencyAbortsIf<PONT>{dd_addr: dd_addr}
+        include if (add_all_currencies) AddCurrencyAbortsIf<XUS>{dd_addr: dd_addr}
                 else AddCurrencyAbortsIf<CoinType>{dd_addr: dd_addr};
 
         modifies global<Dealer>(dd_addr);
         ensures exists<Dealer>(dd_addr);
         modifies global<Event::EventHandleGenerator>(dd_addr);
         modifies global<Diem::PreburnQueue<CoinType>>(dd_addr);
-        modifies global<Diem::PreburnQueue<PONT>>(dd_addr);
+        modifies global<Diem::PreburnQueue<XUS>>(dd_addr);
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -107,7 +107,7 @@ module DesignatedDealer {
         assert(exists_at(dd_addr), Errors::not_published(EDEALER));
         Diem::publish_preburn_queue_to_account<CoinType>(dd, tc_account);
     }
-    spec fun add_currency {
+    spec add_currency {
         pragma opaque;
 
         let dd_addr = Signer::spec_address_of(dd);
@@ -157,7 +157,7 @@ module DesignatedDealer {
         );
         Diem::mint<CoinType>(tc_account, amount)
     }
-    spec fun tiered_mint {
+    spec tiered_mint {
         use 0x1::CoreAddresses;
         pragma opaque;
 
@@ -169,8 +169,9 @@ module DesignatedDealer {
         modifies global<TierInfo<CoinType>>(dd_addr);
         ensures !exists<TierInfo<CoinType>>(dd_addr);
         let currency_info = global<Diem::CurrencyInfo<CoinType>>(CoreAddresses::CURRENCY_INFO_ADDRESS());
+        let post post_currency_info = global<Diem::CurrencyInfo<CoinType>>(CoreAddresses::CURRENCY_INFO_ADDRESS());
         ensures result.value == amount;
-        ensures currency_info == update_field(old(currency_info), total_value, old(currency_info.total_value) + amount);
+        ensures post_currency_info == update_field(currency_info, total_value, currency_info.total_value + amount);
     }
     spec schema TieredMintAbortsIf<CoinType> {
         tc_account: signer;
@@ -186,7 +187,7 @@ module DesignatedDealer {
     public fun exists_at(dd_addr: address): bool {
         exists<Dealer>(dd_addr)
     }
-    spec fun exists_at {
+    spec exists_at {
         pragma opaque;
         aborts_if false;
         ensures result == exists<Dealer>(dd_addr);
@@ -199,7 +200,7 @@ module DesignatedDealer {
 
     spec module {
         /// resource struct Dealer persists after publication
-        invariant update [global] forall addr: address where old(exists<Dealer>(addr)): exists<Dealer>(addr);
+        invariant update forall addr: address where old(exists<Dealer>(addr)): exists<Dealer>(addr);
     }
 
 }

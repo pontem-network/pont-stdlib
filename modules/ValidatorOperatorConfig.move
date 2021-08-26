@@ -34,7 +34,7 @@ module ValidatorOperatorConfig {
             human_name,
         });
     }
-    spec fun publish {
+    spec publish {
         include Roles::AbortsIfNotDiemRoot{account: dr_account};
         include Roles::AbortsIfNotValidatorOperator{validator_operator_addr: Signer::address_of(validator_operator_account)};
         include PublishAbortsIf {validator_operator_addr: Signer::spec_address_of(validator_operator_account)};
@@ -57,7 +57,7 @@ module ValidatorOperatorConfig {
         assert(has_validator_operator_config(validator_operator_addr), Errors::not_published(EVALIDATOR_OPERATOR_CONFIG));
         *&borrow_global<ValidatorOperatorConfig>(validator_operator_addr).human_name
     }
-    spec fun get_human_name {
+    spec get_human_name {
         pragma opaque;
         aborts_if !has_validator_operator_config(validator_operator_addr) with Errors::NOT_PUBLISHED;
         ensures result == get_human_name(validator_operator_addr);
@@ -65,7 +65,7 @@ module ValidatorOperatorConfig {
     public fun has_validator_operator_config(validator_operator_addr: address): bool {
         exists<ValidatorOperatorConfig>(validator_operator_addr)
     }
-    spec fun has_validator_operator_config {
+    spec has_validator_operator_config {
         ensures result == has_validator_operator_config(validator_operator_addr);
     }
 
@@ -75,13 +75,13 @@ module ValidatorOperatorConfig {
 
     /// If an address has a ValidatorOperatorConfig resource, it has a validator operator role.
     spec module {
-        invariant [global] forall addr: address where has_validator_operator_config(addr):
+        invariant forall addr: address where has_validator_operator_config(addr):
             Roles::spec_has_validator_operator_role_addr(addr);
     }
 
     /// # Persistence
     spec module {
-        invariant update [global] forall addr: address where old(exists<ValidatorOperatorConfig>(addr)):
+        invariant update forall addr: address where old(exists<ValidatorOperatorConfig>(addr)):
             exists<ValidatorOperatorConfig>(addr);
     }
 

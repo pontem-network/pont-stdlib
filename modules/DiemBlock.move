@@ -43,13 +43,14 @@ module DiemBlock {
         borrow_global<BlockMetadata>(CoreAddresses::DIEM_ROOT_ADDRESS()).height
     }
 
-    spec module {} // Switch documentation context to module level.
+    spec module { } // Switch documentation context to module level.
 
     /// # Initialization
     /// This implies that `BlockMetadata` is published after initialization and stays published
     /// ever after
     spec module {
-        invariant [global] DiemTimestamp::is_operating() ==> is_initialized();
+        invariant DiemTimestamp::is_operating() ==> is_initialized();
     }
 }
+
 }

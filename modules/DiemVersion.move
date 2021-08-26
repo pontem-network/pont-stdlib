@@ -26,7 +26,7 @@ module DiemVersion {
             DiemVersion { major: 1 },
         );
     }
-    spec fun initialize {
+    spec initialize {
         /// Must abort if the signer does not have the DiemRoot role [[H10]][PERMISSION].
         include Roles::AbortsIfNotDiemRoot{account: dr_account};
 
@@ -54,7 +54,7 @@ module DiemVersion {
             DiemVersion { major }
         );
     }
-    spec fun set {
+    spec set {
         /// Must abort if the signer does not have the DiemRoot role [[H10]][PERMISSION].
         include Roles::AbortsIfNotDiemRoot{account: dr_account};
 
@@ -72,7 +72,7 @@ module DiemVersion {
     /// # Initialization
     spec module {
         /// After genesis, version is published.
-        invariant [global] DiemTimestamp::is_operating() ==> DiemConfig::spec_is_published<DiemVersion>();
+        invariant DiemTimestamp::is_operating() ==> DiemConfig::spec_is_published<DiemVersion>();
     }
 
     /// # Access Control
