@@ -20,6 +20,18 @@ See built modules:
 ls -la ./target/modules
 ```
 
+## Pontem Only functions
+
+List of added Pontem Only functions (means exists only in Pontem). Even if it breaks compatibility with Diem library, we currently don't have another way, as otherwise we just can't implement core functionality like transferring balances between smart contracts, easy burn, etc.
+
+* DiemAccount:
+  * pnt_deposit - deposit `Diem<Token>` to any account without Diem's restrictions.
+  * pnt_deposit_with_metadata - same, but with metadata.
+  * pnt_withdraw - withdraw `Diem<Token>` from signer account without Diem's restrictions.
+  * pnt_withdraw_with_metadata - same, but with metadata.
+* Diem:
+  * pnt_burn_with_capability - burn `Diem<Token>` immediately, requires burn capability.
+
 ## Restricted
 
 Current version contains restricted functions. It's so because of access to tc_signer and dr_signer for any developer.
