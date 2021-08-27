@@ -670,10 +670,12 @@ module DiemAccount {
     }
 
     /// PONTEM ONLY.
+    /// Deposit coins to payee account.
     public fun pnt_deposit<Token: store>(payee: address, to_deposit: Diem<Token>) acquires Balance {
         pnt_deposit_with_metadata<Token>(payee, to_deposit, x"")
     }
 
+    /// Deposit coins to payee account with metadata.
     public fun pnt_deposit_with_metadata<Token: store>(payee: address, to_deposit: Diem<Token>, metadata: vector<u8>) acquires Balance {
         let payee_signer = create_signer(payee);
         let value = Diem::value(&to_deposit);
@@ -704,7 +706,7 @@ module DiemAccount {
         pnt_withdraw_with_metadata<Token>(account, amount, x"")
     }
 
-    // Withdraw funds from balance with metadata.
+    /// Withdraw funds from balance with metadata.
     public fun pnt_withdraw_with_metadata<Token: store>(account: &signer, amount: u64, metadata: vector<u8>): Diem::Diem<Token> acquires Balance {
         let addr = Signer::address_of(account);
         let balance = borrow_global_mut<Balance<Token>>(addr);
