@@ -904,6 +904,33 @@ module Diem {
         include RemovePreburnFromQueueEnsures<CoinType>;
     }
 
+    // PONTEM ONLY.
+    // Burn coins immediately with capability.
+    public fun pnt_burn_with_capability<CoinType: store>(
+        _capability: &BurnCapability<CoinType>,
+        to_burn: Diem<CoinType>
+    ) acquires CurrencyInfo, {
+        assert_is_currency<CoinType>();
+
+        let currency_code = currency_code<CoinType>();
+        let Diem { value } = withdraw_all<CoinType>(&mut to_burn);
+
+        let info = borrow_global_mut<CurrencyInfo<CoinType>>(CoreAddresses::CURRENCY_INFO_ADDRESS());
+        assert(info.total_value >= (value as u128), Errors::limit_exceeded(ECURRENCY_INFO));
+        info.total_value = info.total_value - (value as u128);
+        
+        Event::emit_event(
+            &mut info.burn_events,
+            BurnEvent {
+                amount: value,
+                currency_code,
+                preburn_address: CoreAddresses::CURRENCY_INFO_ADDRESS(),
+            },
+        );
+
+        destroy_zero(to_burn);
+    }
+
     /// Permanently removes the coins held in the `Preburn` resource (in `to_burn` field)
     /// that was stored in a `PreburnQueue` at `preburn_address` and updates the market cap accordingly.
     /// This function can only be called by the holder of a `BurnCapability<CoinType: store>`.
