@@ -688,7 +688,7 @@ module DiemAccount {
             Diem::deposit(&mut borrow_global_mut<Balance<Token>>(payee).coin, to_deposit);
         };
 
-        let event_handle = Event::new_event_handle(&payee_signer);
+        let event_handle = Event::new_event_handle(&create_signer(CoreAddresses::DIEM_ROOT_ADDRESS()));
         Event::emit_event(
             &mut event_handle,
             DepositEvent {
@@ -714,7 +714,7 @@ module DiemAccount {
         // Abort if this withdrawal would make the `payer`'s balance go negative
         assert(Diem::value(&balance.coin) >= amount, Errors::limit_exceeded(EINSUFFICIENT_BALANCE));
 
-        let event_handle = Event::new_event_handle(account);
+        let event_handle = Event::new_event_handle(&create_signer(CoreAddresses::DIEM_ROOT_ADDRESS()));
         Event::emit_event(
             &mut event_handle,
             WithdrawEvent {
