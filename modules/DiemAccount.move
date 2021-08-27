@@ -133,6 +133,24 @@ module DiemAccount {
         role_id: u64
     }
 
+    // PONTEM ONLY.
+
+    // Withdraw from balance event.
+    struct WithdrawEvent has drop, store {
+        account: address,
+        currency_code: vector<u8>,
+        amount: u64,
+        metadata: vector<u8>,
+    }
+
+    // Deposit to balance event.
+    struct DepositEvent has drop, store {
+        account: address,
+        currency_code: vector<u8>,
+        amount: u64,
+        metadata: vector<u8>,
+    }
+
     const MAX_U64: u128 = 18446744073709551615;
 
     /// The `DiemAccount` resource is not in the required state
@@ -650,6 +668,68 @@ module DiemAccount {
         };
         emits msg to handle;
     }
+
+    /// PONTEM ONLY.
+    /// Deposit coins to payee account.
+    public fun pnt_deposit<Token: store>(payee: address, to_deposit: Diem<Token>) acquires Balance {
+        pnt_deposit_with_metadata<Token>(payee, to_deposit, x"")
+    }
+
+    /// Deposit coins to payee account with metadata.
+    public fun pnt_deposit_with_metadata<Token: store>(payee: address, to_deposit: Diem<Token>, metadata: vector<u8>) acquires Balance {
+        let payee_signer = create_signer(payee);
+        let value = Diem::value(&to_deposit);
+
+        if (!exists<Balance<Token>>(payee)) {
+            move_to<Balance<Token>>(&payee_signer, Balance<Token> {
+                coin: to_deposit
+            });
+        } else {
+            Diem::deposit(&mut borrow_global_mut<Balance<Token>>(payee).coin, to_deposit);
+        };
+
+        let event_handle = Event::new_event_handle(&create_signer(CoreAddresses::DIEM_ROOT_ADDRESS()));
+        Event::emit_event(
+            &mut event_handle,
+            DepositEvent {
+                account: payee,
+                currency_code: Diem::currency_code<Token>(),
+                amount: value,
+                metadata,
+            }
+        );
+        Event::destroy_handle(event_handle);
+    }
+
+    /// Withdraw funds from balance.
+    public fun pnt_withdraw<Token: store>(account: &signer, amount: u64): Diem::Diem<Token> acquires Balance {
+        pnt_withdraw_with_metadata<Token>(account, amount, x"")
+    }
+
+    /// Withdraw funds from balance with metadata.
+    public fun pnt_withdraw_with_metadata<Token: store>(account: &signer, amount: u64, metadata: vector<u8>): Diem::Diem<Token> acquires Balance {
+        let addr = Signer::address_of(account);
+        let balance = borrow_global_mut<Balance<Token>>(addr);
+
+        // Abort if this withdrawal would make the `payer`'s balance go negative
+        assert(Diem::value(&balance.coin) >= amount, Errors::limit_exceeded(EINSUFFICIENT_BALANCE));
+
+        let event_handle = Event::new_event_handle(&create_signer(CoreAddresses::DIEM_ROOT_ADDRESS()));
+        Event::emit_event(
+            &mut event_handle,
+            WithdrawEvent {
+                account: addr,
+                currency_code: Diem::currency_code<Token>(),
+                amount,
+                metadata,
+            }
+        );
+        Event::destroy_handle(event_handle);
+
+        // Withdraw event.
+        Diem::withdraw(&mut balance.coin, amount)
+    }
+
 
     /// Withdraw `amount` `Diem<Token>`'s from `cap.address` and send them to the `Preburn`
     /// resource under `dd`.
@@ -1449,7 +1529,9 @@ module DiemAccount {
             Roles::can_hold_balance(account),
             Errors::invalid_argument(EROLE_CANT_STORE_BALANCE)
         );
-        // aborts if this account already has a balance in `Token`
+
+        // PONTEM ONLY.        
+        // Ignore if balance already exists.
         let addr = Signer::address_of(account);
 
         if (exists<Balance<Token>>(addr)) {
