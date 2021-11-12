@@ -20,6 +20,7 @@ module Genesis {
     use 0x1::TransactionFee;
     use 0x1::DiemVMConfig;
     use 0x1::PONT;
+    use 0x1::KSM;
 
     /// Initializes the Diem framework.
     fun initialize(
@@ -48,6 +49,7 @@ module Genesis {
 
         // Currency setup
         PONT::initialize(dr_account, tc_account);
+        KSM::initialize(dr_account, tc_account);
 
         AccountFreezing::initialize(dr_account);
 
