@@ -13,7 +13,7 @@ jobs:
       fail-fast: false
       matrix:
         dove:
-          - 1.3.0
+          - 1.3.3
           - latest
     defaults:
       run:

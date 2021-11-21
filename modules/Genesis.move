@@ -21,6 +21,9 @@ module Genesis {
     use 0x1::DiemVMConfig;
     use 0x1::PONT;
     use 0x1::KSM;
+    use 0x1::KAR;
+    use 0x1::KUSD;
+    use 0x1::LKSM;
 
     /// Initializes the Diem framework.
     fun initialize(
@@ -47,9 +50,12 @@ module Genesis {
         // Currency setup
         Diem::initialize(dr_account);
 
-        // Currency setup
+        // Currencies setup.
         PONT::initialize(dr_account, tc_account);
         KSM::initialize(dr_account, tc_account);
+        KAR::initialize(dr_account, tc_account);
+        KUSD::initialize(dr_account, tc_account);
+        LKSM::initialize(dr_account, tc_account);
 
         AccountFreezing::initialize(dr_account);
 
