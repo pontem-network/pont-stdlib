@@ -154,7 +154,7 @@ module DiemFramework::Diem {
     }
 
     /// The maximum value for `CurrencyInfo.scaling_factor`
-    const MAX_SCALING_FACTOR: u64 = 10000000000;
+    const MAX_SCALING_FACTOR: u64 = 1000000000000;
 
     /// Data structure invariant for CurrencyInfo.  Asserts that `CurrencyInfo.scaling_factor`
     /// is always greater than 0 and not greater than `MAX_SCALING_FACTOR`
