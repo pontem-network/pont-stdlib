@@ -70,7 +70,7 @@ module DiemFramework::Genesis {
         initial_diem_version: u64,
         consensus_config: vector<u8>,
     ) {
-        DiemAccount::initialize(dr_account, x"00000000000000000000000000000000");
+        DiemAccount::initialize(dr_account, x"");
 
         ChainId::initialize(dr_account, chain_id);
 
@@ -166,7 +166,7 @@ module DiemFramework::Genesis {
         assert(num_validator_network_addresses == num_full_node_network_addresses, 0);
 
         let i = 0;
-        let dummy_auth_key_prefix = x"00000000000000000000000000000000";
+        let dummy_auth_key_prefix = x"";
         while (i < num_owners) {
             let owner = Vector::borrow(&owners, i);
             let owner_address = Signer::address_of(owner);
@@ -236,8 +236,8 @@ module DiemFramework::Genesis {
         initialize_internal(
             dr_account,
             tc_account,
-            x"0000000000000000000000000000000000000000000000000000000000000000",
-            x"0000000000000000000000000000000000000000000000000000000000000000",
+            x"",
+            x"",
             Vector::empty(), // not needed for unit tests
             false, // not needed for unit tests
             x"", // instruction_schedule not needed for unit tests
