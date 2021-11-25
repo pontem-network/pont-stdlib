@@ -6,9 +6,7 @@
 module DiemFramework::Genesis {
     use DiemFramework::AccountFreezing;
     use DiemFramework::ChainId;
-    use DiemFramework::XUS;
     use DiemFramework::DualAttestation;
-    use DiemFramework::XDX;
     use DiemFramework::Diem;
     use DiemFramework::DiemAccount;
     use DiemFramework::DiemBlock;
@@ -18,7 +16,6 @@ module DiemFramework::Genesis {
     use DiemFramework::DiemTimestamp;
     use DiemFramework::DiemTransactionPublishingOption;
     use DiemFramework::DiemVersion;
-    use DiemFramework::TransactionFee;
     use DiemFramework::DiemVMConfig;
     use DiemFramework::ValidatorConfig;
     use DiemFramework::ValidatorOperatorConfig;
@@ -84,13 +81,10 @@ module DiemFramework::Genesis {
         Diem::initialize(dr_account);
 
         // Currency setup
-        XUS::initialize(dr_account, tc_account);
         PONT::initialize(dr_account, tc_account);
         KSM::initialize(dr_account, tc_account);
-        XDX::initialize(dr_account, tc_account);
 
         AccountFreezing::initialize(dr_account);
-        TransactionFee::initialize(tc_account);
 
         DiemSystem::initialize_validator_set(dr_account);
         DiemVersion::initialize(dr_account, initial_diem_version);

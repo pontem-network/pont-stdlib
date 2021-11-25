@@ -2,7 +2,7 @@
 module DiemFramework::DesignatedDealer {
     use DiemFramework::Diem;
     use DiemFramework::Roles;
-    use DiemFramework::XUS::XUS;
+    use DiemFramework::PONT;
     use Std::Errors;
     use Std::Event;
     use Std::Signer;
@@ -70,7 +70,7 @@ module DiemFramework::DesignatedDealer {
         assert(!exists<Dealer>(Signer::address_of(dd)), Errors::already_published(EDEALER));
         move_to(dd, Dealer { mint_event_handle: Event::new_event_handle<ReceivedMintEvent>(dd) });
         if (add_all_currencies) {
-            add_currency<XUS>(dd, tc_account);
+            add_currency<PONT::PONT>(dd, tc_account);
         } else {
             add_currency<CoinType>(dd, tc_account);
         };

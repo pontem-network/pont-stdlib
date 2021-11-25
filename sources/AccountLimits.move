@@ -6,8 +6,6 @@ module DiemFramework::AccountLimits {
     use Std::Errors;
     use Std::Signer;
 
-    friend DiemFramework::XDX;
-    friend DiemFramework::XUS;
     friend DiemFramework::PONT;
     friend DiemFramework::KSM;
 

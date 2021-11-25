@@ -15,8 +15,7 @@ module DiemFramework::Diem {
     use Std::Vector;
 
     friend DiemFramework::DesignatedDealer;
-    friend DiemFramework::XDX;
-    friend DiemFramework::TransactionFee;
+    friend DiemFramework::PONT;
 
     /// The `Diem` resource defines the Diem coin for each currency in
     /// Diem. Each "coin" is coupled with a type `CoinType` specifying the

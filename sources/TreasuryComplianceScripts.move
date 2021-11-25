@@ -9,7 +9,6 @@ module DiemFramework::TreasuryComplianceScripts {
     use DiemFramework::DiemAccount;
     use DiemFramework::Diem;
     use DiemFramework::SlidingNonce;
-    use DiemFramework::TransactionFee;
     use DiemFramework::AccountFreezing;
     use DiemFramework::DualAttestation;
     use DiemFramework::VASPDomain;
@@ -267,46 +266,6 @@ module DiemFramework::TreasuryComplianceScripts {
         /// **Access Control:**
         /// Only the account with a Preburn resource or PreburnQueue resource can preburn [[H4]][PERMISSION].
         aborts_if !(exists<Diem::Preburn<Token>>(account_addr) || exists<Diem::PreburnQueue<Token>>(account_addr));
-    }
-
-    /// # Summary
-    /// Burns the transaction fees collected in the `CoinType` currency so that the
-    /// Diem association may reclaim the backing coins off-chain. May only be sent
-    /// by the Treasury Compliance account.
-    ///
-    /// # Technical Description
-    /// Burns the transaction fees collected in `CoinType` so that the
-    /// association may reclaim the backing coins. Once this transaction has executed
-    /// successfully all transaction fees that will have been collected in
-    /// `CoinType` since the last time this script was called with that specific
-    /// currency. Both `balance` and `preburn` fields in the
-    /// `TransactionFee::TransactionFee<CoinType>` resource published under the `0xB1E55ED`
-    /// account address will have a value of 0 after the successful execution of this script.
-    ///
-    /// # Events
-    /// The successful execution of this transaction will emit a `Diem::BurnEvent` on the event handle
-    /// held in the `Diem::CurrencyInfo<CoinType>` resource's `burn_events` published under
-    /// `0xA550C18`.
-    ///
-    /// # Parameters
-    /// | Name         | Type     | Description                                                                                                                                         |
-    /// | ------       | ------   | -------------                                                                                                                                       |
-    /// | `CoinType`   | Type     | The Move type for the `CoinType` being added to the sending account of the transaction. `CoinType` must be an already-registered currency on-chain. |
-    /// | `tc_account` | `signer` | The signer of the sending account of this transaction. Must be the Treasury Compliance account.                                                     |
-    ///
-    /// # Common Abort Conditions
-    /// | Error Category             | Error Reason                          | Description                                                 |
-    /// | ----------------           | --------------                        | -------------                                               |
-    /// | `Errors::REQUIRES_ADDRESS` | `CoreAddresses::ETREASURY_COMPLIANCE` | The sending account is not the Treasury Compliance account. |
-    /// | `Errors::NOT_PUBLISHED`    | `TransactionFee::ETRANSACTION_FEE`    | `CoinType` is not an accepted transaction fee currency.     |
-    /// | `Errors::INVALID_ARGUMENT` | `Diem::ECOIN`                        | The collected fees in `CoinType` are zero.                  |
-    ///
-    /// # Related Scripts
-    /// * `TreasuryComplianceScripts::burn_with_amount`
-    /// * `TreasuryComplianceScripts::cancel_burn_with_amount`
-
-    public(script) fun burn_txn_fees<CoinType>(tc_account: signer) {
-        TransactionFee::burn_fees<CoinType>(&tc_account);
     }
 
     /// # Summary
