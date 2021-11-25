@@ -12,3 +12,8 @@ DiemRoot = "0xA550C18"
 TreasuryCompliance = "0xB1E55ED"
 CurrencyInfo = "0xB1E55ED"
 VMReserved = "0x0"
+
+[dependencies.MoveStdlib]
+git = "https://github.com/pontem-network/diem.git"
+rev = "v1.5-pre"
+subdir = "language/move-stdlib"
