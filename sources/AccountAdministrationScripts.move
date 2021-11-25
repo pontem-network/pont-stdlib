@@ -1,12 +1,12 @@
-address 0x1 {
 /// This module holds transactions that can be used to administer accounts in the Diem Framework.
-module AccountAdministrationScripts {
-    use 0x1::DiemAccount;
-    use 0x1::RecoveryAddress;
-    use 0x1::SharedEd25519PublicKey;
-    use 0x1::SlidingNonce;
-    use 0x1::DualAttestation;
-    use 0x1::DiemId;
+module DiemFramework::AccountAdministrationScripts {
+    use DiemFramework::DiemAccount;
+    use DiemFramework::RecoveryAddress;
+    use DiemFramework::SharedEd25519PublicKey;
+    use DiemFramework::SlidingNonce;
+    use DiemFramework::DualAttestation;
+    use DiemFramework::VASPDomain;
+    use DiemFramework::CRSN;
 
     /// # Summary
     /// Adds a zero `Currency` balance to the sending `account`. This will enable `account` to
@@ -38,17 +38,17 @@ module AccountAdministrationScripts {
     /// * `AccountCreationScripts::create_parent_vasp_account`
     /// * `PaymentScripts::peer_to_peer_with_metadata`
 
-    public(script) fun add_currency_to_account<Currency: store>(account: signer) {
+    public(script) fun add_currency_to_account<Currency>(account: signer) {
         DiemAccount::add_currency<Currency>(&account);
     }
     spec add_currency_to_account {
-        use 0x1::Errors;
-        use 0x1::Signer;
-        use 0x1::Roles;
+        use Std::Errors;
+        use Std::Signer;
+        use DiemFramework::Roles;
 
         include DiemAccount::TransactionChecks{sender: account}; // properties checked by the prologue.
         include DiemAccount::AddCurrencyAbortsIf<Currency>;
-        include DiemAccount::AddCurrencyEnsures<Currency>{addr: Signer::spec_address_of(account)};
+        include DiemAccount::AddCurrencyEnsures<Currency>{addr: Signer::address_of(account)};
 
         aborts_with [check]
             Errors::NOT_PUBLISHED,
@@ -108,14 +108,14 @@ module AccountAdministrationScripts {
         )
     }
     spec add_recovery_rotation_capability {
-        use 0x1::Signer;
-        use 0x1::Errors;
+        use Std::Signer;
+        use Std::Errors;
 
         include DiemAccount::TransactionChecks{sender: to_recover_account}; // properties checked by the prologue.
         include DiemAccount::ExtractKeyRotationCapabilityAbortsIf{account: to_recover_account};
         include DiemAccount::ExtractKeyRotationCapabilityEnsures{account: to_recover_account};
 
-        let addr = Signer::spec_address_of(to_recover_account);
+        let addr = Signer::address_of(to_recover_account);
         let rotation_cap = DiemAccount::spec_get_key_rotation_cap(addr);
 
         include RecoveryAddress::AddRotationCapabilityAbortsIf{
@@ -164,8 +164,8 @@ module AccountAdministrationScripts {
         SharedEd25519PublicKey::publish(&account, public_key)
     }
     spec publish_shared_ed25519_public_key {
-        use 0x1::Errors;
-        use 0x1::DiemAccount;
+        use Std::Errors;
+        use DiemFramework::DiemAccount;
 
         include DiemAccount::TransactionChecks{sender: account}; // properties checked by the prologue.
         include SharedEd25519PublicKey::PublishAbortsIf{key: public_key};
@@ -209,11 +209,11 @@ module AccountAdministrationScripts {
         DiemAccount::restore_key_rotation_capability(key_rotation_capability);
     }
     spec rotate_authentication_key {
-        use 0x1::Signer;
-        use 0x1::Errors;
+        use Std::Signer;
+        use Std::Errors;
 
         include DiemAccount::TransactionChecks{sender: account}; // properties checked by the prologue.
-        let account_addr = Signer::spec_address_of(account);
+        let account_addr = Signer::address_of(account);
         include DiemAccount::ExtractKeyRotationCapabilityAbortsIf;
         let key_rotation_capability = DiemAccount::spec_get_key_rotation_cap(account_addr);
         include DiemAccount::RotateAuthenticationKeyAbortsIf{cap: key_rotation_capability, new_authentication_key: new_key};
@@ -271,11 +271,11 @@ module AccountAdministrationScripts {
         DiemAccount::restore_key_rotation_capability(key_rotation_capability);
     }
     spec rotate_authentication_key_with_nonce {
-        use 0x1::Signer;
-        use 0x1::Errors;
+        use Std::Signer;
+        use Std::Errors;
 
         include DiemAccount::TransactionChecks{sender: account}; // properties checked by the prologue.
-        let account_addr = Signer::spec_address_of(account);
+        let account_addr = Signer::address_of(account);
         include SlidingNonce::RecordNonceAbortsIf{ seq_nonce: sliding_nonce };
         include DiemAccount::ExtractKeyRotationCapabilityAbortsIf;
         let key_rotation_capability = DiemAccount::spec_get_key_rotation_cap(account_addr);
@@ -335,12 +335,12 @@ module AccountAdministrationScripts {
         DiemAccount::restore_key_rotation_capability(key_rotation_capability);
     }
     spec rotate_authentication_key_with_nonce_admin {
-        use 0x1::Signer;
-        use 0x1::Errors;
-        use 0x1::Roles;
+        use Std::Signer;
+        use Std::Errors;
+        use DiemFramework::Roles;
 
         include DiemAccount::TransactionChecks{sender: account}; // properties checked by the prologue.
-        let account_addr = Signer::spec_address_of(account);
+        let account_addr = Signer::address_of(account);
         include SlidingNonce::RecordNonceAbortsIf{ account: dr_account, seq_nonce: sliding_nonce };
         include DiemAccount::ExtractKeyRotationCapabilityAbortsIf;
         let key_rotation_capability = DiemAccount::spec_get_key_rotation_cap(account_addr);
@@ -405,9 +405,9 @@ module AccountAdministrationScripts {
         RecoveryAddress::rotate_authentication_key(&account, recovery_address, to_recover, new_key)
     }
     spec rotate_authentication_key_with_recovery_address {
-        use 0x1::Errors;
-        use 0x1::DiemAccount;
-        use 0x1::Signer;
+        use Std::Errors;
+        use DiemFramework::DiemAccount;
+        use Std::Signer;
 
         include DiemAccount::TransactionChecks{sender: account}; // properties checked by the prologue.
         include RecoveryAddress::RotateAuthenticationKeyAbortsIf;
@@ -421,7 +421,7 @@ module AccountAdministrationScripts {
         /// The delegatee at the recovery address has to hold the key rotation capability for
         /// the address to recover. The address of the transaction signer has to be either
         /// the delegatee's address or the address to recover [[H18]][PERMISSION][[J18]][PERMISSION].
-        let account_addr = Signer::spec_address_of(account);
+        let account_addr = Signer::address_of(account);
         aborts_if !RecoveryAddress::spec_holds_key_rotation_cap_for(recovery_address, to_recover) with Errors::INVALID_ARGUMENT;
         aborts_if !(account_addr == recovery_address || account_addr == to_recover) with Errors::INVALID_ARGUMENT;
     }
@@ -468,9 +468,9 @@ module AccountAdministrationScripts {
         DualAttestation::rotate_compliance_public_key(&account, new_key)
     }
     spec rotate_dual_attestation_info {
-        use 0x1::Errors;
-        use 0x1::DiemAccount;
-        use 0x1::Signer;
+        use Std::Errors;
+        use DiemFramework::DiemAccount;
+        use Std::Signer;
 
         include DiemAccount::TransactionChecks{sender: account}; // properties checked by the prologue.
         include DualAttestation::RotateBaseUrlAbortsIf;
@@ -488,7 +488,7 @@ module AccountAdministrationScripts {
         /// **Access Control:**
         /// Only the account having Credential can rotate the info.
         /// Credential is granted to either a Parent VASP or a designated dealer [[H17]][PERMISSION].
-        include DualAttestation::AbortsIfNoCredential{addr: Signer::spec_address_of(account)};
+        include DualAttestation::AbortsIfNoCredential{addr: Signer::address_of(account)};
     }
 
     /// # Summary
@@ -522,8 +522,8 @@ module AccountAdministrationScripts {
         SharedEd25519PublicKey::rotate_key(&account, public_key)
     }
     spec rotate_shared_ed25519_public_key {
-        use 0x1::Errors;
-        use 0x1::DiemAccount;
+        use Std::Errors;
+        use DiemFramework::DiemAccount;
 
         include DiemAccount::TransactionChecks{sender: account}; // properties checked by the prologue.
         include SharedEd25519PublicKey::RotateKeyAbortsIf{new_public_key: public_key};
@@ -570,14 +570,14 @@ module AccountAdministrationScripts {
     }
 
     spec create_recovery_address {
-        use 0x1::Signer;
-        use 0x1::Errors;
+        use Std::Signer;
+        use Std::Errors;
 
         include DiemAccount::TransactionChecks{sender: account}; // properties checked by the prologue.
         include DiemAccount::ExtractKeyRotationCapabilityAbortsIf;
         include DiemAccount::ExtractKeyRotationCapabilityEnsures;
 
-        let account_addr = Signer::spec_address_of(account);
+        let account_addr = Signer::address_of(account);
         let rotation_cap = DiemAccount::spec_get_key_rotation_cap(account_addr);
 
         include RecoveryAddress::PublishAbortsIf{
@@ -596,13 +596,13 @@ module AccountAdministrationScripts {
     }
 
     /// # Summary
-    /// Publishes a `DiemId::DiemIdDomains` resource under a parent VASP account.
+    /// Publishes a `VASPDomain::VASPDomains` resource under a parent VASP account.
     /// The sending account must be a parent VASP account.
     ///
     /// # Technical Description
-    /// Publishes a `DiemId::DiemIdDomains` resource under `account`.
-    /// The The `DiemId::DiemIdDomains` resource's `domains` field is a vector
-    /// of DiemIdDomain, and will be empty on at the end of processing this transaction.
+    /// Publishes a `VASPDomain::VASPDomains` resource under `account`.
+    /// The The `VASPDomain::VASPDomains` resource's `domains` field is a vector
+    /// of VASPDomain, and will be empty on at the end of processing this transaction.
     ///
     /// # Parameters
     /// | Name      | Type     | Description                                           |
@@ -612,25 +612,79 @@ module AccountAdministrationScripts {
     /// # Common Abort Conditions
     /// | Error Category              | Error Reason              | Description                                                                    |
     /// | ----------------            | --------------            | -------------                                                                  |
-    /// | `Errors::ALREADY_PUBLISHED` | `DiemId::EDIEM_ID_DOMAIN` | A `DiemId::DiemIdDomains` resource has already been published under `account`. |
+    /// | `Errors::ALREADY_PUBLISHED` | `VASPDomain::EVASP_DOMAINS` | A `VASPDomain::VASPDomains` resource has already been published under `account`. |
     /// | `Errors::REQUIRES_ROLE`     | `Roles::EPARENT_VASP`     | The sending `account` was not a parent VASP account.                           |
-    public(script) fun create_diem_id_domains(account: signer) {
-        DiemId::publish_diem_id_domains(&account)
+    public(script) fun create_vasp_domains(account: signer) {
+        VASPDomain::publish_vasp_domains(&account)
     }
-    spec create_diem_id_domains {
-        use 0x1::Signer;
-        use 0x1::Roles;
-        use 0x1::Errors;
+    spec create_vasp_domains {
+        use DiemFramework::Roles;
+        use Std::Errors;
+        use Std::Signer;
 
-        let vasp_addr = Signer::spec_address_of(account);
+        let vasp_addr = Signer::address_of(account);
         include DiemAccount::TransactionChecks{sender: account}; // properties checked by the prologue.
         include Roles::AbortsIfNotParentVasp;
-        include DiemId::PublishDiemIdDomainsAbortsIf { vasp_addr };
-        include DiemId::PublishDiemIdDomainsEnsures { vasp_addr };
+        include VASPDomain::PublishVASPDomainsAbortsIf { vasp_addr };
+        include VASPDomain::PublishVASPDomainsEnsures { vasp_addr };
 
         aborts_with [check]
             Errors::ALREADY_PUBLISHED,
             Errors::REQUIRES_ROLE;
     }
-}
+
+    /// # Summary
+    /// Publishes a CRSN resource under `account` and opts the account in to
+    /// concurrent transaction processing. Upon successful execution of this
+    /// script, all further transactions sent from this account will be ordered
+    /// and processed according to DIP-168.
+    ///
+    /// # Technical Description
+    /// This publishes a `CRSN::CRSN` resource under `account` with `crsn_size`
+    /// number of slots. All slots will be initialized to the empty (unused)
+    /// state, and the CRSN resource's `min_nonce` field will be set to the transaction's
+    /// sequence number + 1.
+    ///
+    /// # Parameters
+    /// | Name        | Type     | Description                                           |
+    /// | ------      | ------   | -------------                                         |
+    /// | `account`   | `signer` | The signer of the sending account of the transaction. |
+    /// | `crsn_size` | `u64`    | The the number of slots the published CRSN will have. |
+    ///
+    /// # Common Abort Conditions
+    /// | Error Category             | Error Reason            | Description                                                    |
+    /// | ----------------           | --------------          | -------------                                                  |
+    /// | `Errors::INVALID_STATE`    | `CRSN::EHAS_CRSN`       | A `CRSN::CRSN` resource was already published under `account`. |
+    /// | `Errors::INVALID_ARGUMENT` | `CRSN::EZERO_SIZE_CRSN` | The `crsn_size` was zero.                                      |
+    public(script) fun opt_in_to_crsn(account: signer, crsn_size: u64) {
+        DiemAccount::publish_crsn(&account, crsn_size)
+    }
+
+    /// # Summary
+    /// Shifts the window held by the CRSN resource published under `account`
+    /// by `shift_amount`. This will expire all unused slots in the CRSN at the
+    /// time of processing that are less than `shift_amount`. The exact
+    /// semantics are defined in DIP-168.
+    ///
+    /// # Technical Description
+    /// This shifts the slots in the published `CRSN::CRSN` resource under
+    /// `account` by `shift_amount`, and increments the CRSN's `min_nonce` field
+    /// by `shift_amount` as well. After this, it will shift the window over
+    /// any set bits. It is important to note that the sequence nonce of the
+    /// sending transaction must still lie within the range of the window in
+    /// order for this transaction to be processed successfully.
+    ///
+    /// # Parameters
+    /// | Name           | Type     | Description                                                 |
+    /// | ------         | ------   | -------------                                               |
+    /// | `account`      | `signer` | The signer of the sending account of the transaction.       |
+    /// | `shift_amount` | `u64`    | The amount to shift the window in the CRSN under `account`. |
+    ///
+    /// # Common Abort Conditions
+    /// | Error Category          | Error Reason     | Description                                               |
+    /// | ----------------        | --------------   | -------------                                             |
+    /// | `Errors::INVALID_STATE` | `CRSN::ENO_CRSN` | A `CRSN::CRSN` resource is not published under `account`. |
+    public(script) fun force_expire(account: signer, shift_amount: u64) {
+        CRSN::force_expire(&account, shift_amount)
+    }
 }

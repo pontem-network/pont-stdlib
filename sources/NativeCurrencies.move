@@ -1,11 +1,10 @@
-address 0x1 {
-module NativeCurrencies {
-    use 0x1::Errors;
-    use 0x1::Signer;
+module DiemFramework::NativeCurrencies {
+    use Std::Errors;
+    use Std::Signer;
 
     const NATIVE_CURRENCY: u64 = 0;
 
-    struct NativeCurrency<CoinType: store> has key, store {
+    struct NativeCurrency<phantom CoinType: store> has key, store {
         access_path: vector<u8>,
     }
 
@@ -16,5 +15,4 @@ module NativeCurrencies {
         );
         move_to(account, NativeCurrency<CoinType> { access_path: access_path })
     }
-}
 }

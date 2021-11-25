@@ -1,14 +1,12 @@
-address 0x1 {
-
 /// Allows transactions to be executed out-of-order while ensuring that they are executed at most once.
 /// Nonces are assigned to transactions off-chain by clients submitting the transactions.
 /// It maintains a sliding window bitvector of 128 flags.  A flag of 0 indicates that the transaction
 /// with that nonce has not yet been executed.
 /// When nonce X is recorded, all transactions with nonces lower then X-128 will abort.
-
-module SlidingNonce {
-    use 0x1::Signer;
-    use 0x1::Errors;
+module DiemFramework::SlidingNonce {
+    use Std::Signer;
+    use Std::Errors;
+    friend DiemFramework::DiemAccount;
 
     struct SlidingNonce has key {
         /// Minimum nonce in sliding window. All transactions with smaller
@@ -46,7 +44,7 @@ module SlidingNonce {
     spec schema RecordNonceAbortsIf {
         account: signer;
         seq_nonce: u64;
-        aborts_if !exists<SlidingNonce>(Signer::spec_address_of(account)) with Errors::NOT_PUBLISHED;
+        aborts_if !exists<SlidingNonce>(Signer::address_of(account)) with Errors::NOT_PUBLISHED;
         aborts_if spec_try_record_nonce(account, seq_nonce) != 0 with Errors::INVALID_ARGUMENT;
     }
 
@@ -250,9 +248,10 @@ module SlidingNonce {
         /// >Note: Verification is turned off. For verifying callers, this is effectively abstracted into a function
         /// that returns arbitrary results because `spec_try_record_nonce` is uninterpreted.
         pragma opaque, verify = false;
+        aborts_if !exists<SlidingNonce>(Signer::address_of(account)) with Errors::NOT_PUBLISHED;
+        modifies global<SlidingNonce>(Signer::address_of(account));
         ensures result == spec_try_record_nonce(account, seq_nonce);
-        aborts_if !exists<SlidingNonce>(Signer::spec_address_of(account)) with Errors::NOT_PUBLISHED;
-        modifies global<SlidingNonce>(Signer::spec_address_of(account));
+        ensures exists<SlidingNonce>(Signer::address_of(account));
     }
 
     /// Specification version of `Self::try_record_nonce`.
@@ -260,15 +259,15 @@ module SlidingNonce {
 
     /// Publishes nonce resource for `account`
     /// This is required before other functions in this module can be called for `account`
-    public fun publish(account: &signer) {
+    public(friend) fun publish(account: &signer) {
         assert(!exists<SlidingNonce>(Signer::address_of(account)), Errors::already_published(ENONCE_ALREADY_PUBLISHED));
         move_to(account, SlidingNonce {  min_nonce: 0, nonce_mask: 0 });
     }
     spec publish {
         pragma opaque;
-        modifies global<SlidingNonce>(Signer::spec_address_of(account));
-        aborts_if exists<SlidingNonce>(Signer::spec_address_of(account)) with Errors::ALREADY_PUBLISHED;
-        ensures exists<SlidingNonce>(Signer::spec_address_of(account));
+        modifies global<SlidingNonce>(Signer::address_of(account));
+        aborts_if exists<SlidingNonce>(Signer::address_of(account)) with Errors::ALREADY_PUBLISHED;
+        ensures exists<SlidingNonce>(Signer::address_of(account));
     }
 
     // =================================================================
@@ -277,15 +276,14 @@ module SlidingNonce {
     spec module {} // Switch to module documentation context
 
     spec module {
-        use 0x1::CoreAddresses;
-        use 0x1::DiemTimestamp;
+        use DiemFramework::DiemTimestamp;
 
         /// Sliding nonces are initialized at Diem root and treasury compliance addresses
-        invariant DiemTimestamp::is_operating()
-            ==> exists<SlidingNonce>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        invariant [suspendable] DiemTimestamp::is_operating()
+            ==> exists<SlidingNonce>(@DiemRoot);
 
-        invariant DiemTimestamp::is_operating()
-            ==> exists<SlidingNonce>(CoreAddresses::TREASURY_COMPLIANCE_ADDRESS());
+        invariant [suspendable] DiemTimestamp::is_operating()
+            ==> exists<SlidingNonce>(@TreasuryCompliance);
 
         // In the current code, only Diem root and Treasury compliance have sliding nonces.
         // That is a difficult cross-module invariant to prove (it depends on Genesis and
@@ -293,5 +291,4 @@ module SlidingNonce {
         // in this module to publish sliding nonces on other accounts.  Anyway, this property
         // is probably not very important.
     }
-}
 }

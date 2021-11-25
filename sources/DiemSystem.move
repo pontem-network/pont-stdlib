@@ -1,21 +1,18 @@
-address 0x1 {
-
 /// Maintains information about the set of validators used during consensus.
 /// Provides functions to add, remove, and update validators in the
 /// validator set.
 ///
 /// > Note: When trying to understand this code, it's important to know that "config"
 /// and "configuration" are used for several distinct concepts.
-module DiemSystem {
-    use 0x1::CoreAddresses;
-    use 0x1::Errors;
-    use 0x1::DiemConfig::{Self, ModifyConfigCapability};
-    use 0x1::Option::{Self, Option};
-    use 0x1::Signer;
-    use 0x1::ValidatorConfig;
-    use 0x1::Vector;
-    use 0x1::Roles;
-    use 0x1::DiemTimestamp;
+module DiemFramework::DiemSystem {
+    use DiemFramework::DiemConfig::{Self, DiemConfig, ModifyConfigCapability};
+    use DiemFramework::ValidatorConfig;
+    use DiemFramework::Roles;
+    use DiemFramework::DiemTimestamp;
+    use Std::Errors;
+    use Std::Option::{Self, Option};
+    use Std::Signer;
+    use Std::Vector;
 
     /// Information about a Validator Owner.
     struct ValidatorInfo has copy, drop, store {
@@ -77,12 +74,17 @@ module DiemSystem {
     const ECONFIG_UPDATE_RATE_LIMITED: u64 = 6;
     /// Validator set already at maximum allowed size
     const EMAX_VALIDATORS: u64 = 7;
+    /// Validator config update time overflows
+    const ECONFIG_UPDATE_TIME_OVERFLOWS: u64 = 8;
 
     /// Number of microseconds in 5 minutes
     const FIVE_MINUTES: u64 = 300000000;
 
     /// The maximum number of allowed validators in the validator set
     const MAX_VALIDATORS: u64 = 256;
+
+    /// The largest possible u64 value
+    const MAX_U64: u64 = 18446744073709551615;
 
     ///////////////////////////////////////////////////////////////////////////
     // Setup methods
@@ -108,16 +110,16 @@ module DiemSystem {
             },
         );
         assert(
-            !exists<CapabilityHolder>(CoreAddresses::DIEM_ROOT_ADDRESS()),
+            !exists<CapabilityHolder>(@DiemRoot),
             Errors::already_published(ECAPABILITY_HOLDER)
         );
         move_to(dr_account, CapabilityHolder { cap })
     }
     spec initialize_validator_set {
-        modifies global<DiemConfig::DiemConfig<DiemSystem>>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        modifies global<DiemConfig::DiemConfig<DiemSystem>>(@DiemRoot);
         include DiemTimestamp::AbortsIfNotGenesis;
         include Roles::AbortsIfNotDiemRoot{account: dr_account};
-        let dr_addr = Signer::spec_address_of(dr_account);
+        let dr_addr = Signer::address_of(dr_account);
         // TODO: The next two aborts_if's are not independent. Perhaps they can be
         // simplified.
         aborts_if DiemConfig::spec_is_published<DiemSystem>() with Errors::ALREADY_PUBLISHED;
@@ -132,23 +134,30 @@ module DiemSystem {
     fun set_diem_system_config(value: DiemSystem) acquires CapabilityHolder {
         DiemTimestamp::assert_operating();
         assert(
-            exists<CapabilityHolder>(CoreAddresses::DIEM_ROOT_ADDRESS()),
+            exists<CapabilityHolder>(@DiemRoot),
             Errors::not_published(ECAPABILITY_HOLDER)
         );
         // Updates the DiemConfig<DiemSystem> and emits a reconfigure event.
         DiemConfig::set_with_capability_and_reconfigure<DiemSystem>(
-            &borrow_global<CapabilityHolder>(CoreAddresses::DIEM_ROOT_ADDRESS()).cap,
+            &borrow_global<CapabilityHolder>(@DiemRoot).cap,
             value
         )
     }
     spec set_diem_system_config {
         pragma opaque;
-        modifies global<DiemConfig::DiemConfig<DiemSystem>>(CoreAddresses::DIEM_ROOT_ADDRESS());
-        modifies global<DiemConfig::Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        pragma delegate_invariants_to_caller;
+        requires DiemTimestamp::is_operating() ==> (
+            DiemConfig::spec_has_config() &&
+            DiemConfig::spec_is_published<DiemSystem>() &&
+            exists<CapabilityHolder>(@DiemRoot)
+        );
+        modifies global<DiemConfig::DiemConfig<DiemSystem>>(@DiemRoot);
+        modifies global<DiemConfig::Configuration>(@DiemRoot);
         include DiemTimestamp::AbortsIfNotOperating;
         include DiemConfig::ReconfigureAbortsIf;
         /// `payload` is the only field of DiemConfig, so next completely specifies it.
-        ensures global<DiemConfig::DiemConfig<DiemSystem>>(CoreAddresses::DIEM_ROOT_ADDRESS()).payload == value;
+        ensures global<DiemConfig::DiemConfig<DiemSystem>>(@DiemRoot).payload == value;
+        include DiemConfig::SetEnsures<DiemSystem>{payload: value};
         include DiemConfig::ReconfigureEmits;
     }
 
@@ -161,13 +170,14 @@ module DiemSystem {
         dr_account: &signer,
         validator_addr: address
     ) acquires CapabilityHolder {
-
         DiemTimestamp::assert_operating();
-
-        Roles::assert_restricted();
         Roles::assert_diem_root(dr_account);
+
         // A prospective validator must have a validator config resource
-        assert(ValidatorConfig::is_valid(validator_addr), Errors::invalid_argument(EINVALID_PROSPECTIVE_VALIDATOR));
+        assert(
+            ValidatorConfig::is_valid(validator_addr),
+            Errors::invalid_argument(EINVALID_PROSPECTIVE_VALIDATOR)
+        );
 
         // Bound the validator set size
         assert(
@@ -195,7 +205,7 @@ module DiemSystem {
         set_diem_system_config(diem_system_config);
     }
     spec add_validator {
-        modifies global<DiemConfig::DiemConfig<DiemSystem>>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        modifies global<DiemConfig::DiemConfig<DiemSystem>>(@DiemRoot);
         include AddValidatorAbortsIf;
         include AddValidatorEnsures;
         include DiemConfig::ReconfigureEmits;
@@ -238,7 +248,6 @@ module DiemSystem {
         dr_account: &signer,
         validator_addr: address
     ) acquires CapabilityHolder {
-        Roles::assert_restricted();
         DiemTimestamp::assert_operating();
         Roles::assert_diem_root(dr_account);
         let diem_system_config = get_diem_system_config();
@@ -252,7 +261,7 @@ module DiemSystem {
         set_diem_system_config(diem_system_config);
     }
     spec remove_validator {
-        modifies global<DiemConfig::DiemConfig<DiemSystem>>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        modifies global<DiemConfig::DiemConfig<DiemSystem>>(@DiemRoot);
         include RemoveValidatorAbortsIf;
         include RemoveValidatorEnsures;
         include DiemConfig::ReconfigureEmits;
@@ -296,19 +305,22 @@ module DiemSystem {
         let is_validator_info_updated = update_ith_validator_info_(&mut diem_system_config.validators, to_update_index);
         if (is_validator_info_updated) {
             let validator_info = Vector::borrow_mut(&mut diem_system_config.validators, to_update_index);
-            assert(DiemTimestamp::now_microseconds() >
-                   validator_info.last_config_update_time + FIVE_MINUTES,
-                   ECONFIG_UPDATE_RATE_LIMITED);
+            assert(
+                validator_info.last_config_update_time <= MAX_U64 - FIVE_MINUTES,
+                Errors::limit_exceeded(ECONFIG_UPDATE_TIME_OVERFLOWS)
+            );
+            assert(
+                DiemTimestamp::now_microseconds() > validator_info.last_config_update_time + FIVE_MINUTES,
+                Errors::limit_exceeded(ECONFIG_UPDATE_RATE_LIMITED)
+            );
             validator_info.last_config_update_time = DiemTimestamp::now_microseconds();
             set_diem_system_config(diem_system_config);
         }
     }
     spec update_config_and_reconfigure {
         pragma opaque;
-        // TODO(timeout): this started timing out after recent refactoring. Investigate.
-        pragma verify = false;
-        modifies global<DiemConfig::Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
-        modifies global<DiemConfig::DiemConfig<DiemSystem>>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        modifies global<DiemConfig::Configuration>(@DiemRoot);
+        modifies global<DiemConfig::DiemConfig<DiemSystem>>(@DiemRoot);
         include ValidatorConfig::AbortsIfGetOperator{addr: validator_addr};
         include UpdateConfigAndReconfigureAbortsIf;
         include UpdateConfigAndReconfigureEnsures;
@@ -324,6 +336,13 @@ module DiemSystem {
                 v_info.addr == validator_addr
                 && v_info.config != ValidatorConfig::spec_get_config(validator_addr));
         include is_validator_info_updated ==> DiemConfig::ReconfigureAbortsIf;
+        let validator_index =
+            spec_index_of_validator(spec_get_validators(), validator_addr);
+        let last_config_time = spec_get_validators()[validator_index].last_config_update_time;
+        aborts_if is_validator_info_updated && last_config_time > MAX_U64 - FIVE_MINUTES
+            with Errors::LIMIT_EXCEEDED;
+        aborts_if is_validator_info_updated && DiemTimestamp::spec_now_microseconds() <= last_config_time + FIVE_MINUTES
+                with Errors::LIMIT_EXCEEDED;
         include UpdateConfigAndReconfigureEmits;
     }
     spec schema UpdateConfigAndReconfigureAbortsIf {
@@ -332,7 +351,7 @@ module DiemSystem {
         let validator_operator_addr = Signer::address_of(validator_operator_account);
         include DiemTimestamp::AbortsIfNotOperating;
         /// Must abort if the signer does not have the ValidatorOperator role [[H15]][PERMISSION].
-        include Roles::AbortsIfNotValidatorOperator{validator_operator_addr: validator_operator_addr};
+        include Roles::AbortsIfNotValidatorOperator{account: validator_operator_account};
         include ValidatorConfig::AbortsIfNoValidatorConfig{addr: validator_addr};
         aborts_if ValidatorConfig::get_operator(validator_addr) != validator_operator_addr
             with Errors::INVALID_ARGUMENT;
@@ -446,8 +465,8 @@ module DiemSystem {
         let i = 0;
         while ({
             spec {
-                assert i <= size;
-                assert forall j in 0..i: validators[j].addr != addr;
+                invariant i <= size;
+                invariant forall j in 0..i: validators[j].addr != addr;
             };
             (i < size)
         })
@@ -481,7 +500,7 @@ module DiemSystem {
                 Option::is_some(result)
                 && {
                         let at = Option::borrow(result);
-                        0 <= at && at < size && validators[at].addr == addr
+                        at == spec_index_of_validator(validators, addr)
                     };
     }
 
@@ -562,9 +581,9 @@ module DiemSystem {
     spec module {
         /// After genesis, the `DiemSystem` configuration is published, as well as the capability
         /// which grants the right to modify it to certain functions in this module.
-        invariant DiemTimestamp::is_operating() ==>
+        invariant [suspendable] DiemTimestamp::is_operating() ==>
             DiemConfig::spec_is_published<DiemSystem>() &&
-            exists<CapabilityHolder>(CoreAddresses::DIEM_ROOT_ADDRESS());
+            exists<CapabilityHolder>(@DiemRoot);
     }
 
     /// # Access Control
@@ -578,10 +597,35 @@ module DiemSystem {
     /// `update_config_and_reconfigure`.
 
     spec module {
-       /// The permission "{Add, Remove} Validator" is granted to DiemRoot [[H14]][PERMISSION].
-       apply Roles::AbortsIfNotDiemRoot{account: dr_account} to add_validator, remove_validator;
+        invariant forall addr: address
+            where exists<DiemConfig<DiemSystem>>(addr): addr == @DiemRoot;
+
+        invariant update [suspendable] (
+                old(DiemConfig::spec_is_published<DiemSystem>()) &&
+                DiemConfig::spec_is_published<DiemSystem>() &&
+                old(len(DiemConfig::get<DiemSystem>().validators)) != len(DiemConfig::get<DiemSystem>().validators)
+            ) ==> Roles::spec_signed_by_diem_root_role();
+
+        invariant update [suspendable] (
+                old(DiemConfig::spec_is_published<DiemSystem>()) &&
+                DiemConfig::spec_is_published<DiemSystem>() &&
+                old(len(DiemConfig::get<DiemSystem>().validators)) == len(DiemConfig::get<DiemSystem>().validators)
+            ) ==> (
+                forall addr: address: (
+                    exists i in 0..len(DiemConfig::get<DiemSystem>().validators)
+                        where old(DiemConfig::get<DiemSystem>().validators[i].addr == addr):
+                        old(DiemConfig::get<DiemSystem>().validators[i].config) != DiemConfig::get<DiemSystem>().validators[i].config
+                ) ==> (exists a: address: Signer::is_txn_signer_addr(a) && ValidatorConfig::get_operator(addr) == a)
+            );
     }
 
+    // TODO: The following is the old style spec, which can removed later.
+    spec module {
+        /// The permission "{Add, Remove} Validator" is granted to DiemRoot [[H14]][PERMISSION].
+        apply Roles::AbortsIfNotDiemRoot{account: dr_account} to add_validator, remove_validator;
+        /// The permission "UpdateValidatorConfig(addr)" is granted to ValidatorOperator [[H15]][PERMISSION]
+        apply Roles::AbortsIfNotValidatorOperator{account: validator_operator_account} to update_config_and_reconfigure;
+    }
     spec schema ValidatorSetConfigRemainsSame {
         ensures spec_get_validators() == old(spec_get_validators());
     }
@@ -604,6 +648,10 @@ module DiemSystem {
         DiemConfig::get<DiemSystem>().validators
     }
 
+    spec fun spec_index_of_validator(validators: vector<ValidatorInfo>, addr: address): u64 {
+        choose min i in range(validators) where validators[i].addr == addr
+    }
+
     spec module {
 
        /// Every validator has a published ValidatorConfig whose config option is "some"
@@ -621,7 +669,7 @@ module DiemSystem {
        /// > Note: Verification of DiemSystem seems to be very sensitive, and will
        /// often time out after small changes.  Disabling this property
        /// (with [deactivate, global]) is sometimes a quick temporary fix.
-       invariant forall i1 in 0..len(spec_get_validators()):
+       invariant [suspendable] forall i1 in 0..len(spec_get_validators()):
            Roles::spec_has_validator_role_addr(spec_get_validators()[i1].addr);
 
        /// `Consensus_voting_power` is always 1. In future implementations, this
@@ -629,9 +677,8 @@ module DiemSystem {
        /// change. It's here currently because and accidental or illicit change
        /// to the voting power of a validator could defeat the Byzantine fault tolerance
        /// of DiemBFT.
-       invariant forall i1 in 0..len(spec_get_validators()):
+       invariant [suspendable] forall i1 in 0..len(spec_get_validators()):
            spec_get_validators()[i1].consensus_voting_power == 1;
 
     }
-}
 }

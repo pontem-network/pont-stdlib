@@ -1,14 +1,11 @@
-address 0x1 {
-
 /// This module defines a struct storing the publishing policies for the VM.
-module DiemTransactionPublishingOption {
-    use 0x1::Errors;
-    use 0x1::Vector;
-    use 0x1::DiemConfig::{Self, DiemConfig};
-    use 0x1::DiemTimestamp;
-    use 0x1::CoreAddresses;
-    use 0x1::Roles;
-    use 0x1::Signer;
+module DiemFramework::DiemTransactionPublishingOption {
+    use DiemFramework::DiemConfig::{Self, DiemConfig};
+    use DiemFramework::DiemTimestamp;
+    use DiemFramework::Roles;
+    use Std::Errors;
+    use Std::Signer;
+    use Std::Vector;
 
     const SCRIPT_HASH_LENGTH: u64 = 32;
 
@@ -100,7 +97,6 @@ module DiemTransactionPublishingOption {
 
     /// Allow the execution of arbitrary script or not.
     public fun set_open_script(dr_account: &signer) {
-        Roles::assert_restricted();
         Roles::assert_diem_root(dr_account);
         let publish_option = DiemConfig::get<DiemTransactionPublishingOption>();
 
@@ -117,7 +113,6 @@ module DiemTransactionPublishingOption {
 
     /// Allow module publishing from arbitrary sender or not.
     public fun set_open_module(dr_account: &signer, open_module: bool) {
-        Roles::assert_restricted();
         Roles::assert_diem_root(dr_account);
 
         let publish_option = DiemConfig::get<DiemTransactionPublishingOption>();
@@ -135,7 +130,6 @@ module DiemTransactionPublishingOption {
 
     /// If called, transactions cannot be sent from any account except DiemRoot
     public fun halt_all_transactions(dr_account: &signer) {
-        Roles::assert_restricted();
         Roles::assert_diem_root(dr_account);
         assert(
             !exists<HaltAllTransactions>(Signer::address_of(dr_account)),
@@ -146,7 +140,6 @@ module DiemTransactionPublishingOption {
 
     /// If called, transactions can be sent from any account once again
     public fun resume_transactions(dr_account: &signer) acquires HaltAllTransactions {
-        Roles::assert_restricted();
         Roles::assert_diem_root(dr_account);
         let dr_address = Signer::address_of(dr_account);
         assert(
@@ -159,14 +152,14 @@ module DiemTransactionPublishingOption {
 
     /// Return true if all non-administrative transactions are currently halted
     fun transactions_halted(): bool {
-        exists<HaltAllTransactions>(CoreAddresses::DIEM_ROOT_ADDRESS())
+        exists<HaltAllTransactions>(@DiemRoot)
     }
 
     spec module { } // Switch documentation context to module level.
 
     /// # Initialization
     spec module {
-        invariant DiemTimestamp::is_operating() ==>
+        invariant [suspendable] DiemTimestamp::is_operating() ==>
             DiemConfig::spec_is_published<DiemTransactionPublishingOption>();
     }
 
@@ -176,8 +169,8 @@ module DiemTransactionPublishingOption {
     /// DiemTransactionPublishingOption config [[H11]][PERMISSION]
     spec schema DiemVersionRemainsSame {
         ensures old(DiemConfig::spec_is_published<DiemTransactionPublishingOption>()) ==>
-            global<DiemConfig<DiemTransactionPublishingOption>>(CoreAddresses::DIEM_ROOT_ADDRESS()) ==
-                old(global<DiemConfig<DiemTransactionPublishingOption>>(CoreAddresses::DIEM_ROOT_ADDRESS()));
+            global<DiemConfig<DiemTransactionPublishingOption>>(@DiemRoot) ==
+                old(global<DiemConfig<DiemTransactionPublishingOption>>(@DiemRoot));
     }
     spec module {
         apply DiemVersionRemainsSame to * except set_open_script, set_open_module;
@@ -199,5 +192,4 @@ module DiemTransactionPublishingOption {
             publish_option.module_publishing_allowed || Roles::has_diem_root_role(account)
         }
     }
-}
 }

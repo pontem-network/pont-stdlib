@@ -1,15 +1,18 @@
-address 0x1 {
-
 /// Publishes configuration information for validators, and issues reconfiguration events
 /// to synchronize configuration changes for the validators.
-
-module DiemConfig {
-    use 0x1::CoreAddresses;
-    use 0x1::Errors;
-    use 0x1::Event;
-    use 0x1::DiemTimestamp;
-    use 0x1::Signer;
-    use 0x1::Roles;
+module DiemFramework::DiemConfig {
+    use DiemFramework::CoreAddresses;
+    use DiemFramework::DiemTimestamp;
+    use DiemFramework::Roles;
+    use Std::Errors;
+    use Std::Event;
+    use Std::Signer;
+    friend DiemFramework::DiemVersion;
+    friend DiemFramework::RegisteredCurrencies;
+    friend DiemFramework::DiemTransactionPublishingOption;
+    friend DiemFramework::DiemVMConfig;
+    friend DiemFramework::DiemSystem;
+    friend DiemFramework::DiemConsensusConfig;
 
     /// A generic singleton resource that holds a value of a specific type.
     struct DiemConfig<Config: copy + drop + store> has key, store {
@@ -35,7 +38,7 @@ module DiemConfig {
     }
 
     /// Accounts with this privilege can modify DiemConfig<TypeName> under Diem root address.
-    struct ModifyConfigCapability<TypeName> has key, store {}
+    struct ModifyConfigCapability<phantom TypeName> has key, store {}
 
     /// Reconfiguration disabled if this resource occurs under LibraRoot.
     struct DisableReconfiguration has key {}
@@ -57,7 +60,7 @@ module DiemConfig {
     ) {
         DiemTimestamp::assert_genesis();
         CoreAddresses::assert_diem_root(dr_account);
-        assert(!exists<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS()), Errors::already_published(ECONFIGURATION));
+        assert(!exists<Configuration>(@DiemRoot), Errors::already_published(ECONFIGURATION));
         move_to<Configuration>(
             dr_account,
             Configuration {
@@ -71,8 +74,8 @@ module DiemConfig {
         pragma opaque;
         include InitializeAbortsIf;
         include InitializeEnsures;
-        modifies global<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
-        modifies global<Event::EventHandleGenerator>(Signer::spec_address_of(dr_account));
+        modifies global<Configuration>(@DiemRoot);
+        modifies global<Event::EventHandleGenerator>(Signer::address_of(dr_account));
     }
     spec schema InitializeAbortsIf {
         dr_account: signer;
@@ -82,7 +85,7 @@ module DiemConfig {
     }
     spec schema InitializeEnsures {
         ensures spec_has_config();
-        let post post_config = global<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        let post post_config = global<Configuration>(@DiemRoot);
         ensures post_config.epoch == 0;
         ensures post_config.last_reconfiguration_time == 0;
     }
@@ -91,7 +94,7 @@ module DiemConfig {
     /// Returns a copy of `Config` value stored under `addr`.
     public fun get<Config: copy + drop + store>(): Config
     acquires DiemConfig {
-        let addr = CoreAddresses::DIEM_ROOT_ADDRESS();
+        let addr = @DiemRoot;
         assert(exists<DiemConfig<Config>>(addr), Errors::not_published(EDIEM_CONFIG));
         *&borrow_global<DiemConfig<Config>>(addr).payload
     }
@@ -101,19 +104,19 @@ module DiemConfig {
         ensures result == get<Config>();
     }
     spec schema AbortsIfNotPublished<Config> {
-        aborts_if !exists<DiemConfig<Config>>(CoreAddresses::DIEM_ROOT_ADDRESS()) with Errors::NOT_PUBLISHED;
+        aborts_if !exists<DiemConfig<Config>>(@DiemRoot) with Errors::NOT_PUBLISHED;
     }
 
     /// Set a config item to a new value with the default capability stored under config address and trigger a
     /// reconfiguration. This function requires that the signer have a `ModifyConfigCapability<Config>`
     /// resource published under it.
-    public fun set<Config: copy + drop + store>(account: &signer, payload: Config)
+    public(friend) fun set<Config: copy + drop + store>(account: &signer, payload: Config)
     acquires DiemConfig, Configuration {
         let signer_address = Signer::address_of(account);
         // Next should always be true if properly initialized.
         assert(exists<ModifyConfigCapability<Config>>(signer_address), Errors::requires_capability(EMODIFY_CAPABILITY));
 
-        let addr = CoreAddresses::DIEM_ROOT_ADDRESS();
+        let addr = @DiemRoot;
         assert(exists<DiemConfig<Config>>(addr), Errors::not_published(EDIEM_CONFIG));
         let config = borrow_global_mut<DiemConfig<Config>>(addr);
         config.payload = payload;
@@ -121,11 +124,11 @@ module DiemConfig {
         reconfigure_();
     }
     spec set {
-        /// TODO: turned off verification until we solve the
-        /// generic type/specific invariant issue
-        pragma opaque, verify = false;
-        modifies global<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
-        modifies global<DiemConfig<Config>>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        pragma opaque;
+        pragma delegate_invariants_to_caller;
+        requires DiemTimestamp::is_operating() ==> spec_has_config();
+        modifies global<Configuration>(@DiemRoot);
+        modifies global<DiemConfig<Config>>(@DiemRoot);
         include SetAbortsIf<Config>;
         include SetEnsures<Config>;
     }
@@ -137,7 +140,7 @@ module DiemConfig {
     }
     spec schema AbortsIfNotModifiable<Config> {
         account: signer;
-        aborts_if !exists<ModifyConfigCapability<Config>>(Signer::spec_address_of(account))
+        aborts_if !exists<ModifyConfigCapability<Config>>(Signer::address_of(account))
             with Errors::REQUIRES_CAPABILITY;
     }
     spec schema SetEnsures<Config> {
@@ -153,24 +156,24 @@ module DiemConfig {
     /// It is called by `DiemSystem::update_config_and_reconfigure`, which allows
     /// validator operators to change the validator set.  All other config changes require
     /// a Diem root signer.
-    public fun set_with_capability_and_reconfigure<Config: copy + drop + store>(
+    public(friend) fun set_with_capability_and_reconfigure<Config: copy + drop + store>(
         _cap: &ModifyConfigCapability<Config>,
         payload: Config
     ) acquires DiemConfig, Configuration {
-        let addr = CoreAddresses::DIEM_ROOT_ADDRESS();
+        let addr = @DiemRoot;
         assert(exists<DiemConfig<Config>>(addr), Errors::not_published(EDIEM_CONFIG));
         let config = borrow_global_mut<DiemConfig<Config>>(addr);
         config.payload = payload;
         reconfigure_();
     }
     spec set_with_capability_and_reconfigure {
-        /// TODO: turned off verification until we solve the
-        /// generic type/specific invariant issue
-        pragma opaque, verify = false;
-        modifies global<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        pragma opaque;
+        pragma delegate_invariants_to_caller;
+        requires DiemTimestamp::is_operating() ==> spec_has_config();
+        modifies global<Configuration>(@DiemRoot);
         include AbortsIfNotPublished<Config>;
         include ReconfigureAbortsIf;
-        modifies global<DiemConfig<Config>>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        modifies global<DiemConfig<Config>>(@DiemRoot);
         include SetEnsures<Config>;
         include ReconfigureEmits;
     }
@@ -178,9 +181,8 @@ module DiemConfig {
     /// Private function to temporarily halt reconfiguration.
     /// This function should only be used for offline WriteSet generation purpose and should never be invoked on chain.
     fun disable_reconfiguration(dr_account: &signer) {
-        Roles::assert_restricted();
         assert(
-            Signer::address_of(dr_account) == CoreAddresses::DIEM_ROOT_ADDRESS(),
+            Signer::address_of(dr_account) == @DiemRoot,
             Errors::requires_address(EDIEM_CONFIG)
         );
         Roles::assert_diem_root(dr_account);
@@ -191,9 +193,8 @@ module DiemConfig {
     /// Private function to resume reconfiguration.
     /// This function should only be used for offline WriteSet generation purpose and should never be invoked on chain.
     fun enable_reconfiguration(dr_account: &signer) acquires DisableReconfiguration {
-        Roles::assert_restricted();
         assert(
-            Signer::address_of(dr_account) == CoreAddresses::DIEM_ROOT_ADDRESS(),
+            Signer::address_of(dr_account) == @DiemRoot,
             Errors::requires_address(EDIEM_CONFIG)
         );
         Roles::assert_diem_root(dr_account);
@@ -203,18 +204,17 @@ module DiemConfig {
     }
 
     fun reconfiguration_enabled(): bool {
-        !exists<DisableReconfiguration>(CoreAddresses::DIEM_ROOT_ADDRESS())
+        !exists<DisableReconfiguration>(@DiemRoot)
     }
 
     /// Publishes a new config.
     /// The caller will use the returned ModifyConfigCapability to specify the access control
     /// policy for who can modify the config.
     /// Does not trigger a reconfiguration.
-    public fun publish_new_config_and_get_capability<Config: copy + drop + store>(
+    public(friend) fun publish_new_config_and_get_capability<Config: copy + drop + store>(
         dr_account: &signer,
         payload: Config,
     ): ModifyConfigCapability<Config> {
-        DiemTimestamp::assert_genesis();
         Roles::assert_diem_root(dr_account);
         assert(
             !exists<DiemConfig<Config>>(Signer::address_of(dr_account)),
@@ -224,26 +224,24 @@ module DiemConfig {
         ModifyConfigCapability<Config> {}
     }
     spec publish_new_config_and_get_capability {
-        /// TODO: turned off verification until we solve the
-        /// generic type/specific invariant issue
-        pragma opaque, verify = false;
-        modifies global<DiemConfig<Config>>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        pragma opaque;
+        pragma delegate_invariants_to_caller;
+        modifies global<DiemConfig<Config>>(@DiemRoot);
         include Roles::AbortsIfNotDiemRoot{account: dr_account};
         include AbortsIfPublished<Config>;
         include SetEnsures<Config>;
     }
     spec schema AbortsIfPublished<Config> {
-        aborts_if exists<DiemConfig<Config>>(CoreAddresses::DIEM_ROOT_ADDRESS()) with Errors::ALREADY_PUBLISHED;
+        aborts_if exists<DiemConfig<Config>>(@DiemRoot) with Errors::ALREADY_PUBLISHED;
     }
 
     /// Publish a new config item. Only Diem root can modify such config.
     /// Publishes the capability to modify this config under the Diem root account.
     /// Does not trigger a reconfiguration.
-    public fun publish_new_config<Config: copy + drop + store>(
+    public(friend) fun publish_new_config<Config: copy + drop + store>(
         dr_account: &signer,
         payload: Config
     ) {
-        DiemTimestamp::assert_genesis();
         let capability = publish_new_config_and_get_capability<Config>(dr_account, payload);
         assert(
             !exists<ModifyConfigCapability<Config>>(Signer::address_of(dr_account)),
@@ -253,8 +251,9 @@ module DiemConfig {
     }
     spec publish_new_config {
         pragma opaque;
-        modifies global<DiemConfig<Config>>(CoreAddresses::DIEM_ROOT_ADDRESS());
-        modifies global<ModifyConfigCapability<Config>>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        pragma delegate_invariants_to_caller;
+        modifies global<DiemConfig<Config>>(@DiemRoot);
+        modifies global<ModifyConfigCapability<Config>>(@DiemRoot);
         include PublishNewConfigAbortsIf<Config>;
         include PublishNewConfigEnsures<Config>;
     }
@@ -262,28 +261,29 @@ module DiemConfig {
         dr_account: signer;
         include Roles::AbortsIfNotDiemRoot{account: dr_account};
         aborts_if spec_is_published<Config>();
-        aborts_if exists<ModifyConfigCapability<Config>>(Signer::spec_address_of(dr_account));
+        aborts_if exists<ModifyConfigCapability<Config>>(Signer::address_of(dr_account));
     }
     spec schema PublishNewConfigEnsures<Config> {
         dr_account: signer;
         payload: Config;
         include SetEnsures<Config>;
-        ensures exists<ModifyConfigCapability<Config>>(Signer::spec_address_of(dr_account));
+        ensures exists<ModifyConfigCapability<Config>>(Signer::address_of(dr_account));
     }
 
     /// Signal validators to start using new configuration. Must be called by Diem root.
     public fun reconfigure(
         dr_account: &signer,
     ) acquires Configuration {
-        Roles::assert_restricted();
         Roles::assert_diem_root(dr_account);
         reconfigure_();
     }
     spec reconfigure {
         pragma opaque;
-        modifies global<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        modifies global<Configuration>(@DiemRoot);
+        ensures old(spec_has_config()) == spec_has_config();
         include Roles::AbortsIfNotDiemRoot{account: dr_account};
         include ReconfigureAbortsIf;
+        include ReconfigureEmits;
     }
 
     /// Private function to do reconfiguration.  Updates reconfiguration status resource
@@ -294,7 +294,7 @@ module DiemConfig {
             return ()
         };
 
-        let config_ref = borrow_global_mut<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        let config_ref = borrow_global_mut<Configuration>(@DiemRoot);
         let current_time = DiemTimestamp::now_microseconds();
 
         // Do not do anything if a reconfiguration event is already emitted within this transaction.
@@ -329,10 +329,11 @@ module DiemConfig {
     }
     spec reconfigure_ {
         pragma opaque;
-        modifies global<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        modifies global<Configuration>(@DiemRoot);
+        requires DiemTimestamp::is_operating() ==> spec_has_config();
         ensures old(spec_has_config()) == spec_has_config();
-        let config = global<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
-        let post post_config = global<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        let config = global<Configuration>(@DiemRoot);
+        let post post_config = global<Configuration>(@DiemRoot);
         let now = DiemTimestamp::spec_now_microseconds();
         let post post_now = DiemTimestamp::spec_now_microseconds();
 
@@ -354,7 +355,7 @@ module DiemConfig {
     /// of callers, and which are therefore marked as `concrete` to be only verified against the implementation.
     /// These conditions are unlikely to happen in reality, and excluding them avoids formal noise.
     spec schema InternalReconfigureAbortsIf {
-        let config = global<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        let config = global<Configuration>(@DiemRoot);
         let current_time = DiemTimestamp::spec_now_microseconds();
         aborts_if [concrete] current_time < config.last_reconfiguration_time with Errors::INVALID_STATE;
         aborts_if [concrete] config.epoch == MAX_U64
@@ -362,7 +363,7 @@ module DiemConfig {
     }
     /// This schema is to be used by callers of `reconfigure`
     spec schema ReconfigureAbortsIf {
-        let config = global<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        let config = global<Configuration>(@DiemRoot);
         let current_time = DiemTimestamp::spec_now_microseconds();
         aborts_if DiemTimestamp::is_operating()
             && reconfiguration_enabled()
@@ -372,8 +373,8 @@ module DiemConfig {
                 with Errors::INVALID_STATE;
     }
     spec schema ReconfigureEmits {
-        let config = global<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
-        let post post_config = global<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        let config = global<Configuration>(@DiemRoot);
+        let post post_config = global<Configuration>(@DiemRoot);
         let post now = DiemTimestamp::spec_now_microseconds();
         let post msg = NewEpochEvent {
             epoch: post_config.epoch,
@@ -385,8 +386,8 @@ module DiemConfig {
     /// Emit a `NewEpochEvent` event. This function will be invoked by genesis directly to generate the very first
     /// reconfiguration event.
     fun emit_genesis_reconfiguration_event() acquires Configuration {
-        assert(exists<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS()), Errors::not_published(ECONFIGURATION));
-        let config_ref = borrow_global_mut<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        assert(exists<Configuration>(@DiemRoot), Errors::not_published(ECONFIGURATION));
+        let config_ref = borrow_global_mut<Configuration>(@DiemRoot);
         assert(config_ref.epoch == 0 && config_ref.last_reconfiguration_time == 0, Errors::invalid_state(ECONFIGURATION));
         config_ref.epoch = 1;
 
@@ -398,12 +399,29 @@ module DiemConfig {
         );
     }
     spec emit_genesis_reconfiguration_event {
-        let post config = global<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        let post config = global<Configuration>(@DiemRoot);
         let post handle = config.events;
         let post msg = NewEpochEvent {
                 epoch: config.epoch,
         };
         emits msg to handle;
+    }
+
+    // =================================================================
+    // Test-only functions
+
+    #[test_only]
+    public fun set_for_testing<Config: copy + drop + store>(account: &signer, payload: Config)
+    acquires DiemConfig, Configuration {
+        set(account, payload)
+    }
+
+    #[test_only]
+    public fun publish_new_config_for_testing<Config: copy + drop + store>(
+        dr_account: &signer,
+        payload: Config
+    ) {
+        publish_new_config(dr_account, payload);
     }
 
     // =================================================================
@@ -414,45 +432,39 @@ module DiemConfig {
     /// # Initialization
     spec module {
         /// After genesis, the `Configuration` is published.
-        invariant DiemTimestamp::is_operating() ==> spec_has_config();
+        invariant [suspendable] DiemTimestamp::is_operating() ==> spec_has_config();
     }
 
     /// # Invariants
     spec module {
         /// Configurations are only stored at the diem root address.
-        invariant
-            forall config_address: address, config_type: type where exists<DiemConfig<config_type>>(config_address):
-                config_address == CoreAddresses::DIEM_ROOT_ADDRESS();
-
-        /// After genesis, no new configurations are added.
-        invariant update
-            DiemTimestamp::is_operating() ==>
-                (forall config_type: type where spec_is_published<config_type>(): old(spec_is_published<config_type>()));
+        invariant<ConfigType>
+            forall config_address: address where exists<DiemConfig<ConfigType>>(config_address):
+                config_address == @DiemRoot;
 
         /// Published configurations are persistent.
-        invariant update
-            (forall config_type: type where old(spec_is_published<config_type>()): spec_is_published<config_type>());
+        invariant<ConfigType> update
+            old(spec_is_published<ConfigType>()) ==> spec_is_published<ConfigType>();
 
         /// If `ModifyConfigCapability<Config>` is published, it is persistent.
-        invariant update forall config_type: type
-            where old(exists<ModifyConfigCapability<config_type>>(CoreAddresses::DIEM_ROOT_ADDRESS())):
-                exists<ModifyConfigCapability<config_type>>(CoreAddresses::DIEM_ROOT_ADDRESS());
+        invariant<ConfigType> update
+            old(exists<ModifyConfigCapability<ConfigType>>(@DiemRoot)) ==>
+                exists<ModifyConfigCapability<ConfigType>>(@DiemRoot);
     }
 
     /// # Helper Functions
     spec module {
         fun spec_has_config(): bool {
-            exists<Configuration>(CoreAddresses::DIEM_ROOT_ADDRESS())
+            exists<Configuration>(@DiemRoot)
         }
 
         fun spec_is_published<Config>(): bool {
-            exists<DiemConfig<Config>>(CoreAddresses::DIEM_ROOT_ADDRESS())
+            exists<DiemConfig<Config>>(@DiemRoot)
         }
 
         fun spec_get_config<Config>(): Config {
-            global<DiemConfig<Config>>(CoreAddresses::DIEM_ROOT_ADDRESS()).payload
+            global<DiemConfig<Config>>(@DiemRoot).payload
         }
     }
 
-}
 }

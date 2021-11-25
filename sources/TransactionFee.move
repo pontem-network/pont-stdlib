@@ -1,19 +1,16 @@
-address 0x1 {
-
 /// Functions to initialize, accumulated, and burn transaction fees.
-
-module TransactionFee {
-    use 0x1::CoreAddresses;
-    use 0x1::Errors;
-    use 0x1::Diem::{Self, Diem, Preburn};
-    use 0x1::Roles;
-    use 0x1::DiemTimestamp;
-    use 0x1::Signer;
-    use 0x1::PONT::PONT;
+module DiemFramework::TransactionFee {
+    use DiemFramework::XUS::XUS;
+    use DiemFramework::XDX;
+    use DiemFramework::Diem::{Self, Diem, Preburn};
+    use DiemFramework::Roles;
+    use DiemFramework::DiemTimestamp;
+    use Std::Errors;
+    use Std::Signer;
 
     /// The `TransactionFee` resource holds a preburn resource for each
     /// fiat `CoinType` that can be collected as a transaction fee.
-    struct TransactionFee<CoinType> has key {
+    struct TransactionFee<phantom CoinType> has key {
         balance: Diem<CoinType>,
         preburn: Preburn<CoinType>,
     }
@@ -29,7 +26,7 @@ module TransactionFee {
         DiemTimestamp::assert_genesis();
         Roles::assert_treasury_compliance(tc_account);
         // accept fees in all the currencies
-        add_txn_fee_currency<PONT>(tc_account);
+        add_txn_fee_currency<XUS>(tc_account);
     }
     spec initialize {
         include DiemTimestamp::AbortsIfNotGenesis;
@@ -40,22 +37,23 @@ module TransactionFee {
     }
     spec schema AddTxnFeeCurrencyAbortsIf<CoinType> {
         include Diem::AbortsIfNoCurrency<CoinType>;
-        aborts_if exists<TransactionFee<CoinType>>(CoreAddresses::TREASURY_COMPLIANCE_ADDRESS())
+        aborts_if exists<TransactionFee<CoinType>>(@TreasuryCompliance)
             with Errors::ALREADY_PUBLISHED;
     }
 
-    public fun is_coin_initialized<CoinType: store>(): bool {
-        exists<TransactionFee<CoinType>>(CoreAddresses::TREASURY_COMPLIANCE_ADDRESS())
+    public fun is_coin_initialized<CoinType>(): bool {
+        exists<TransactionFee<CoinType>>(@TreasuryCompliance)
     }
 
     fun is_initialized(): bool {
-        is_coin_initialized<PONT>()
+        is_coin_initialized<XUS>()
     }
 
     /// Sets up the needed transaction fee state for a given `CoinType` currency by
     /// (1) configuring `tc_account` to accept `CoinType`
     /// (2) publishing a wrapper of the `Preburn<CoinType>` resource under `tc_account`
-    public fun add_txn_fee_currency<CoinType: store>(tc_account: &signer) {
+    public fun add_txn_fee_currency<CoinType>(tc_account: &signer) {
+        Roles::assert_treasury_compliance(tc_account);
         Diem::assert_is_currency<CoinType>();
         assert(
             !is_coin_initialized<CoinType>(),
@@ -71,12 +69,10 @@ module TransactionFee {
     }
 
     /// Deposit `coin` into the transaction fees bucket
-    public fun pay_fee<CoinType: store>(coin: Diem<CoinType>) acquires TransactionFee {
+    public fun pay_fee<CoinType>(coin: Diem<CoinType>) acquires TransactionFee {
         DiemTimestamp::assert_operating();
         assert(is_coin_initialized<CoinType>(), Errors::not_published(ETRANSACTION_FEE));
-        let fees = borrow_global_mut<TransactionFee<CoinType>>(
-            CoreAddresses::TREASURY_COMPLIANCE_ADDRESS(),
-        );
+        let fees = borrow_global_mut<TransactionFee<CoinType>>(@TreasuryCompliance);
         Diem::deposit(&mut fees.balance, coin)
     }
 
@@ -90,58 +86,57 @@ module TransactionFee {
     }
 
     /// Preburns the transaction fees collected in the `CoinType` currency.
-    /// If the `CoinType` is PONT, it unpacks the coin and preburns the
+    /// If the `CoinType` is XDX, it unpacks the coin and preburns the
     /// underlying fiat.
-    public fun burn_fees<CoinType: store>(
-        _tc_account: &signer,
-    ) {
-//        DiemTimestamp::assert_operating();
-//        Roles::assert_treasury_compliance(tc_account);
-//        assert(is_coin_initialized<CoinType>(), Errors::not_published(ETRANSACTION_FEE));
-//        let tc_address = CoreAddresses::TREASURY_COMPLIANCE_ADDRESS();
-//        if (PONT::is_xdx<CoinType>()) {
-//            // TODO: Once the composition of PONT is determined fill this in to
-//            // unpack and burn the backing coins of the PONT coin.
-//            abort Errors::invalid_state(ETRANSACTION_FEE)
-//        } else {
-//            // extract fees
-//            let fees = borrow_global_mut<TransactionFee<CoinType>>(tc_address);
-//            let coin = Diem::withdraw_all(&mut fees.balance);
-//            let burn_cap = Diem::remove_burn_capability<CoinType>(tc_account);
-//            // burn
-//            Diem::burn_now(
-//                coin,
-//                &mut fees.preburn,
-//                tc_address,
-//                &burn_cap
-//            );
-//            Diem::publish_burn_capability(tc_account, burn_cap);
-//        }
+    public fun burn_fees<CoinType>(
+        tc_account: &signer,
+    ) acquires TransactionFee {
+        DiemTimestamp::assert_operating();
+        Roles::assert_treasury_compliance(tc_account);
+        assert(is_coin_initialized<CoinType>(), Errors::not_published(ETRANSACTION_FEE));
+        if (XDX::is_xdx<CoinType>()) {
+            // TODO: Once the composition of XDX is determined fill this in to
+            // unpack and burn the backing coins of the XDX coin.
+            abort Errors::invalid_state(ETRANSACTION_FEE)
+        } else {
+            // extract fees
+            let fees = borrow_global_mut<TransactionFee<CoinType>>(@TreasuryCompliance);
+            let coin = Diem::withdraw_all(&mut fees.balance);
+            let burn_cap = Diem::remove_burn_capability<CoinType>(tc_account);
+            // burn
+            Diem::burn_now(
+                coin,
+                &mut fees.preburn,
+                @TreasuryCompliance,
+                &burn_cap
+            );
+            Diem::publish_burn_capability(tc_account, burn_cap);
+        }
     }
-
     spec burn_fees {
-//        /// Must abort if the account does not have the TreasuryCompliance role [[H3]][PERMISSION].
-//        include Roles::AbortsIfNotTreasuryCompliance{account: tc_account};
-//
-//        include DiemTimestamp::AbortsIfNotOperating;
-//        aborts_if !is_coin_initialized<CoinType>() with Errors::NOT_PUBLISHED;
-//        include if (PONT::spec_is_pont<CoinType>()) BurnFeesPONT else BurnFeesNotPONT<CoinType>;
-//
-//        /// The correct amount of fees is burnt and subtracted from market cap.
-//        ensures Diem::spec_market_cap<CoinType>()
-//            == old(Diem::spec_market_cap<CoinType>()) - old(spec_transaction_fee<CoinType>().balance.value);
-//        /// All the fees is burnt so the balance becomes 0.
-//        ensures spec_transaction_fee<CoinType>().balance.value == 0;
+        pragma disable_invariants_in_body;
+        /// Must abort if the account does not have the TreasuryCompliance role [[H3]][PERMISSION].
+        include Roles::AbortsIfNotTreasuryCompliance{account: tc_account};
+
+        include DiemTimestamp::AbortsIfNotOperating;
+        aborts_if !is_coin_initialized<CoinType>() with Errors::NOT_PUBLISHED;
+        include if (XDX::spec_is_xdx<CoinType>()) BurnFeesXDX else BurnFeesNotXDX<CoinType>;
+
+        /// The correct amount of fees is burnt and subtracted from market cap.
+        ensures Diem::spec_market_cap<CoinType>()
+            == old(Diem::spec_market_cap<CoinType>()) - old(spec_transaction_fee<CoinType>().balance.value);
+        /// All the fees is burnt so the balance becomes 0.
+        ensures spec_transaction_fee<CoinType>().balance.value == 0;
     }
-    /// STUB: To be filled in at a later date once the makeup of the PONT has been determined.
+    /// STUB: To be filled in at a later date once the makeup of the XDX has been determined.
     ///
-    /// # Specification of the case where burn type is PONT.
-    spec schema BurnFeesPONT {
+    /// # Specification of the case where burn type is XDX.
+    spec schema BurnFeesXDX {
         tc_account: signer;
         aborts_if true with Errors::INVALID_STATE;
     }
-    /// # Specification of the case where burn type is not PONT.
-    spec schema BurnFeesNotPONT<CoinType> {
+    /// # Specification of the case where burn type is not XDX.
+    spec schema BurnFeesNotXDX<CoinType> {
         tc_account: signer;
         /// Must abort if the account does not have BurnCapability [[H3]][PERMISSION].
         include Diem::AbortsIfNoBurnCapability<CoinType>{account: tc_account};
@@ -151,7 +146,7 @@ module TransactionFee {
 
         /// tc_account retrieves BurnCapability [[H3]][PERMISSION].
         /// BurnCapability is not transferrable [[J3]][PERMISSION].
-        ensures exists<Diem::BurnCapability<CoinType>>(Signer::spec_address_of(tc_account));
+        ensures exists<Diem::BurnCapability<CoinType>>(Signer::address_of(tc_account));
     }
 
     spec module {} // Switch documentation context to module level.
@@ -160,13 +155,12 @@ module TransactionFee {
 
     spec module {
         /// If time has started ticking, then `TransactionFee` resources have been initialized.
-        invariant DiemTimestamp::is_operating() ==> is_initialized();
+        invariant [suspendable] DiemTimestamp::is_operating() ==> is_initialized();
     }
 
     /// # Helper Function
 
     spec fun spec_transaction_fee<CoinType>(): TransactionFee<CoinType> {
-        borrow_global<TransactionFee<CoinType>>(CoreAddresses::TREASURY_COMPLIANCE_ADDRESS())
+        borrow_global<TransactionFee<CoinType>>(@TreasuryCompliance)
     }
-}
 }

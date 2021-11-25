@@ -1,19 +1,20 @@
-address 0x1 {
-
 /// The ValidatorConfig resource holds information about a validator. Information
 /// is published and updated by Diem root in a `Self::ValidatorConfig` in preparation for
 /// later inclusion (by functions in DiemConfig) in a `DiemConfig::DiemConfig<DiemSystem>`
 /// struct (the `Self::ValidatorConfig` in a `DiemConfig::ValidatorInfo` which is a member
 /// of the `DiemSystem::DiemSystem.validators` vector).
+module DiemFramework::ValidatorConfig {
+    use DiemFramework::DiemTimestamp;
+    use Std::Errors;
+    use DiemFramework::Signature;
+    use DiemFramework::Roles;
+    use DiemFramework::ValidatorOperatorConfig;
+    use Std::Option::{Self, Option};
+    use Std::Signer;
+    friend DiemFramework::DiemAccount;
 
-module ValidatorConfig {
-    use 0x1::DiemTimestamp;
-    use 0x1::Errors;
-    use 0x1::Option::{Self, Option};
-    use 0x1::Signature;
-    use 0x1::Signer;
-    use 0x1::Roles;
-    use 0x1::ValidatorOperatorConfig;
+    #[test_only]
+    friend DiemFramework::ValidatorConfigTests;
 
     struct Config has copy, drop, store {
         consensus_pubkey: vector<u8>,
@@ -47,13 +48,12 @@ module ValidatorConfig {
     /// Publishes a mostly empty ValidatorConfig struct. Eventually, it
     /// will have critical info such as keys, network addresses for validators,
     /// and the address of the validator operator.
-    public fun publish(
+    public(friend) fun publish(
         validator_account: &signer,
         dr_account: &signer,
         human_name: vector<u8>,
     ) {
         DiemTimestamp::assert_operating();
-        Roles::assert_restricted();
         Roles::assert_diem_root(dr_account);
         Roles::assert_validator(validator_account);
         assert(
@@ -68,16 +68,17 @@ module ValidatorConfig {
     }
 
     spec publish {
-        include PublishAbortsIf {validator_addr: Signer::spec_address_of(validator_account)};
-        ensures exists_config(Signer::spec_address_of(validator_account));
+        include PublishAbortsIf;
+        ensures exists_config(Signer::address_of(validator_account));
     }
 
     spec schema PublishAbortsIf {
-        validator_addr: address;
+        validator_account: signer;
         dr_account: signer;
+        let validator_addr = Signer::address_of(validator_account);
         include DiemTimestamp::AbortsIfNotOperating;
         include Roles::AbortsIfNotDiemRoot{account: dr_account};
-        include Roles::AbortsIfNotValidator{validator_addr: validator_addr};
+        include Roles::AbortsIfNotValidator{account: validator_account};
         aborts_if exists_config(validator_addr)
             with Errors::ALREADY_PUBLISHED;
     }
@@ -113,8 +114,7 @@ module ValidatorConfig {
     }
     spec set_operator {
         /// Must abort if the signer does not have the Validator role [[H16]][PERMISSION].
-        let sender = Signer::spec_address_of(validator_account);
-        include Roles::AbortsIfNotValidator{validator_addr: sender};
+        include Roles::AbortsIfNotValidator{account: validator_account};
         include SetOperatorAbortsIf;
         include SetOperatorEnsures;
     }
@@ -123,8 +123,8 @@ module ValidatorConfig {
         /// Must abort if the signer does not have the Validator role [B24].
         validator_account: signer;
         operator_addr: address;
-        let validator_addr = Signer::spec_address_of(validator_account);
-        include Roles::AbortsIfNotValidator{validator_addr: validator_addr};
+        let validator_addr = Signer::address_of(validator_account);
+        include Roles::AbortsIfNotValidator{account: validator_account};
         aborts_if !ValidatorOperatorConfig::has_validator_operator_config(operator_addr)
             with Errors::INVALID_ARGUMENT;
         include AbortsIfNoValidatorConfig{addr: validator_addr};
@@ -134,7 +134,7 @@ module ValidatorConfig {
     spec schema SetOperatorEnsures {
         validator_account: signer;
         operator_addr: address;
-        let validator_addr = Signer::spec_address_of(validator_account);
+        let validator_addr = Signer::address_of(validator_account);
         ensures spec_has_operator(validator_addr);
         ensures get_operator(validator_addr) == operator_addr;
         /// The signer can only change its own operator account [[H16]][PERMISSION].
@@ -154,10 +154,10 @@ module ValidatorConfig {
 
     spec remove_operator {
         /// Must abort if the signer does not have the Validator role [[H16]][PERMISSION].
-        let sender = Signer::spec_address_of(validator_account);
-        include Roles::AbortsIfNotValidator{validator_addr: sender};
+        let sender = Signer::address_of(validator_account);
+        include Roles::AbortsIfNotValidator{account: validator_account};
         include AbortsIfNoValidatorConfig{addr: sender};
-        ensures !spec_has_operator(Signer::spec_address_of(validator_account));
+        ensures !spec_has_operator(Signer::address_of(validator_account));
 
         /// The signer can only change its own operator account [[H16]][PERMISSION].
         ensures forall addr: address where addr != sender:
@@ -316,17 +316,11 @@ module ValidatorConfig {
 
     /// # Access Control
 
+    /// The permission "{Set,Remove}ValidatorOperator(addr)" is granted to Validator [[H16]][PERMISSION]
     spec module {
-        /// Only `Self::set_operator` and `Self::remove_operator` may change the operator for a
-        /// particular (validator owner) address [[H16]][PERMISSION].
-        /// These two functions have a &signer argument for the validator account, so we know
-        /// that the change has been authorized by the validator owner via signing the transaction.
-        apply OperatorRemainsSame to * except set_operator, remove_operator;
-    }
-
-    spec schema OperatorRemainsSame {
-        ensures forall addr1: address where old(exists<ValidatorConfig>(addr1)):
-            global<ValidatorConfig>(addr1).operator_account == old(global<ValidatorConfig>(addr1).operator_account);
+        invariant update forall a: address where old(exists<ValidatorConfig>(a)) && exists<ValidatorConfig>(a):
+            old(global<ValidatorConfig>(a).operator_account) != global<ValidatorConfig>(a).operator_account
+                ==> Signer::is_txn_signer_addr(a) && Roles::spec_has_validator_role_addr(a);
     }
 
     /// # Validity of Validators
@@ -365,5 +359,4 @@ module ValidatorConfig {
     spec fun spec_has_operator(addr: address): bool {
         Option::is_some(global<ValidatorConfig>(addr).operator_account)
     }
-}
 }

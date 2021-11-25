@@ -1,19 +1,18 @@
-address 0x1 {
-
 /// Module managing dual attestation.
-module DualAttestation {
-    use 0x1::CoreAddresses;
-    use 0x1::Errors;
-    use 0x1::PONT::PONT;
-    use 0x1::BCS;
-    use 0x1::Diem;
-    use 0x1::DiemTimestamp;
-    use 0x1::Roles;
-    use 0x1::Signature;
-    use 0x1::Signer;
-    use 0x1::VASP;
-    use 0x1::Vector;
-    use 0x1::Event::{Self, EventHandle};
+module DiemFramework::DualAttestation {
+    use DiemFramework::CoreAddresses;
+    use DiemFramework::XDX::XDX;
+    use DiemFramework::Diem;
+    use DiemFramework::DiemTimestamp;
+    use DiemFramework::Roles;
+    use DiemFramework::Signature;
+    use DiemFramework::VASP;
+    use Std::BCS;
+    use Std::Errors;
+    use Std::Event::{Self, EventHandle};
+    use Std::Signer;
+    use Std::Vector;
+    friend DiemFramework::DiemAccount;
 
     /// This resource holds an entity's globally unique name and all of the metadata it needs to
     /// participate in off-chain protocols.
@@ -92,7 +91,7 @@ module DualAttestation {
     /// `base_url` and `compliance_public_key`. Before receiving any dual attestation payments,
     /// the `created` account must send a transaction that invokes `rotate_base_url` and
     /// `rotate_compliance_public_key` to set these fields to a valid URL/public key.
-    public fun publish_credential(
+    public(friend) fun publish_credential(
         created: &signer,
         creator: &signer,
         human_name: vector<u8>,
@@ -117,7 +116,7 @@ module DualAttestation {
         /// The permission "RotateDualAttestationInfo" is granted to ParentVASP and DesignatedDealer [[H17]][PERMISSION].
         include Roles::AbortsIfNotParentVaspOrDesignatedDealer{account: created};
         include Roles::AbortsIfNotTreasuryCompliance{account: creator};
-        aborts_if spec_has_credential(Signer::spec_address_of(created)) with Errors::ALREADY_PUBLISHED;
+        aborts_if spec_has_credential(Signer::address_of(created)) with Errors::ALREADY_PUBLISHED;
     }
     spec fun spec_has_credential(addr: address): bool {
         exists<Credential>(addr)
@@ -141,7 +140,7 @@ module DualAttestation {
     }
     spec schema RotateBaseUrlAbortsIf {
         account: signer;
-        let sender = Signer::spec_address_of(account);
+        let sender = Signer::address_of(account);
 
         /// Must abort if the account does not have the resource Credential [[H17]][PERMISSION].
         include AbortsIfNoCredential{addr: sender};
@@ -155,7 +154,7 @@ module DualAttestation {
     spec schema RotateBaseUrlEnsures {
         account: signer;
         new_url: vector<u8>;
-        let sender = Signer::spec_address_of(account);
+        let sender = Signer::address_of(account);
 
         ensures global<Credential>(sender).base_url == new_url;
         /// The sender can only rotate its own base url [[H17]][PERMISSION].
@@ -165,7 +164,7 @@ module DualAttestation {
     spec schema RotateBaseUrlEmits {
         account: signer;
         new_url: vector<u8>;
-        let sender = Signer::spec_address_of(account);
+        let sender = Signer::address_of(account);
         let handle = global<Credential>(sender).base_url_rotation_events;
         let msg = BaseUrlRotationEvent {
             new_base_url: new_url,
@@ -199,7 +198,7 @@ module DualAttestation {
         account: signer;
         new_key: vector<u8>;
 
-        let sender = Signer::spec_address_of(account);
+        let sender = Signer::address_of(account);
         /// Must abort if the account does not have the resource Credential [[H17]][PERMISSION].
         include AbortsIfNoCredential{addr: sender};
 
@@ -210,7 +209,7 @@ module DualAttestation {
         account: signer;
         new_key: vector<u8>;
 
-        let sender = Signer::spec_address_of(account);
+        let sender = Signer::address_of(account);
         ensures global<Credential>(sender).compliance_public_key == new_key;
         /// The sender only rotates its own compliance_public_key [[H17]][PERMISSION].
         ensures forall addr1: address where addr1 != sender:
@@ -219,7 +218,7 @@ module DualAttestation {
     spec schema RotateCompliancePublicKeyEmits {
         account: signer;
         new_key: vector<u8>;
-        let sender = Signer::spec_address_of(account);
+        let sender = Signer::address_of(account);
         let handle = global<Credential>(sender).compliance_key_rotation_events;
         let msg = ComplianceKeyRotationEvent {
             new_compliance_public_key: new_key,
@@ -306,7 +305,7 @@ module DualAttestation {
     }
 
     /// Helper which returns true if dual attestion is required for a deposit.
-    fun dual_attestation_required<Token: store>(
+    fun dual_attestation_required<Token>(
         payer: address, payee: address, deposit_value: u64
     ): bool acquires Limit {
         // travel rule applies for payments over a limit
@@ -448,7 +447,7 @@ module DualAttestation {
     ///     published in `payee`'s `Credential` resource
     /// It aborts with an appropriate error code if dual attestation is required, but one or more of
     /// the conditions in (2) is not met.
-    public fun assert_payment_ok<Currency: store>(
+    public fun assert_payment_ok<Currency>(
         payer: address,
         payee: address,
         value: u64,
@@ -484,8 +483,8 @@ module DualAttestation {
     public fun initialize(dr_account: &signer) {
         DiemTimestamp::assert_genesis();
         CoreAddresses::assert_diem_root(dr_account); // operational constraint.
-        assert(!exists<Limit>(CoreAddresses::DIEM_ROOT_ADDRESS()), Errors::already_published(ELIMIT));
-        let initial_limit = (INITIAL_DUAL_ATTESTATION_LIMIT as u128) * (Diem::scaling_factor<PONT>() as u128);
+        assert(!exists<Limit>(@DiemRoot), Errors::already_published(ELIMIT));
+        let initial_limit = (INITIAL_DUAL_ATTESTATION_LIMIT as u128) * (Diem::scaling_factor<XDX>() as u128);
         assert(initial_limit <= MAX_U64, Errors::limit_exceeded(ELIMIT));
         move_to(
             dr_account,
@@ -497,7 +496,7 @@ module DualAttestation {
     spec initialize {
         include DiemTimestamp::AbortsIfNotGenesis;
         include CoreAddresses::AbortsIfNotDiemRoot{account: dr_account};
-        aborts_if exists<Limit>(CoreAddresses::DIEM_ROOT_ADDRESS()) with Errors::ALREADY_PUBLISHED;
+        aborts_if exists<Limit>(@DiemRoot) with Errors::ALREADY_PUBLISHED;
         let initial_limit = INITIAL_DUAL_ATTESTATION_LIMIT * Diem::spec_scaling_factor<XDX>();
         aborts_if initial_limit > MAX_U64 with Errors::LIMIT_EXCEEDED;
         include Diem::AbortsIfNoCurrency<XDX>; // for scaling_factor.
@@ -505,8 +504,8 @@ module DualAttestation {
 
     /// Return the current dual attestation limit in microdiem
     public fun get_cur_microdiem_limit(): u64 acquires Limit {
-        assert(exists<Limit>(CoreAddresses::DIEM_ROOT_ADDRESS()), Errors::not_published(ELIMIT));
-        borrow_global<Limit>(CoreAddresses::DIEM_ROOT_ADDRESS()).micro_xdx_limit
+        assert(exists<Limit>(@DiemRoot), Errors::not_published(ELIMIT));
+        borrow_global<Limit>(@DiemRoot).micro_xdx_limit
     }
     spec get_cur_microdiem_limit {
         pragma opaque;
@@ -518,8 +517,8 @@ module DualAttestation {
     /// Aborts if `tc_account` does not have the TreasuryCompliance role
     public fun set_microdiem_limit(tc_account: &signer, micro_xdx_limit: u64) acquires Limit {
         Roles::assert_treasury_compliance(tc_account);
-        assert(exists<Limit>(CoreAddresses::DIEM_ROOT_ADDRESS()), Errors::not_published(ELIMIT));
-        borrow_global_mut<Limit>(CoreAddresses::DIEM_ROOT_ADDRESS()).micro_xdx_limit = micro_xdx_limit;
+        assert(exists<Limit>(@DiemRoot), Errors::not_published(ELIMIT));
+        borrow_global_mut<Limit>(@DiemRoot).micro_xdx_limit = micro_xdx_limit;
     }
     spec set_microdiem_limit {
         /// Must abort if the signer does not have the TreasuryCompliance role [[H6]][PERMISSION].
@@ -527,7 +526,7 @@ module DualAttestation {
         include Roles::AbortsIfNotTreasuryCompliance{account: tc_account};
 
         aborts_if !spec_is_published() with Errors::NOT_PUBLISHED;
-        ensures global<Limit>(CoreAddresses::DIEM_ROOT_ADDRESS()).micro_xdx_limit == micro_xdx_limit;
+        ensures global<Limit>(@DiemRoot).micro_xdx_limit == micro_xdx_limit;
     }
 
     // **************************** SPECIFICATION ********************************
@@ -537,78 +536,48 @@ module DualAttestation {
 
     /// The Limit resource should be published after genesis
     spec module {
-        invariant DiemTimestamp::is_operating() ==> spec_is_published();
+        invariant [suspendable] DiemTimestamp::is_operating() ==> spec_is_published();
     }
 
     /// # Helper Functions
     spec module {
         /// Helper function to determine whether the Limit is published.
         fun spec_is_published(): bool {
-            exists<Limit>(CoreAddresses::DIEM_ROOT_ADDRESS())
+            exists<Limit>(@DiemRoot)
         }
 
         /// Mirrors `Self::get_cur_microdiem_limit`.
         fun spec_get_cur_microdiem_limit(): u64 {
-            global<Limit>(CoreAddresses::DIEM_ROOT_ADDRESS()).micro_xdx_limit
+            global<Limit>(@DiemRoot).micro_xdx_limit
         }
     }
 
     /// # Access Control
-
-    spec schema PreserveCredentialExistence {
-        /// The existence of Preburn is preserved.
-        ensures forall addr1: address:
-            old(spec_has_credential(addr1)) ==>
-                spec_has_credential(addr1);
-    }
-    spec schema PreserveCredentialAbsence {
-        /// The absence of Preburn is preserved.
-        ensures forall addr1: address:
-            old(!spec_has_credential(addr1)) ==>
-                !spec_has_credential(addr1);
-    }
     spec module {
-        /// The permission "RotateDualAttestationInfo(addr)" is not transferred [[J17]][PERMISSION].
-        apply PreserveCredentialExistence to *;
+        /// Only TreasuryCompliance can change the limit [[H6]][PERMISSION].
+        invariant update forall a: address where old(exists<Limit>(@DiemRoot)):
+            spec_get_cur_microdiem_limit() != old(spec_get_cur_microdiem_limit())
+		     ==> Roles::spec_signed_by_treasury_compliance_role();
 
         /// The permission "RotateDualAttestationInfo(addr)" is only granted to ParentVASP or DD [[H17]][PERMISSION].
         /// "Credential" resources are only published under ParentVASP or DD accounts.
-        apply PreserveCredentialAbsence to * except publish_credential;
-        apply Roles::AbortsIfNotParentVaspOrDesignatedDealer{account: created} to publish_credential;
         invariant forall addr1: address:
             spec_has_credential(addr1) ==>
                 (Roles::spec_has_parent_VASP_role_addr(addr1) ||
                 Roles::spec_has_designated_dealer_role_addr(addr1));
-    }
 
-    /// Only set_microdiem_limit can change the limit [[H6]][PERMISSION].
-    spec schema DualAttestationLimitRemainsSame {
-        /// The DualAttestation limit stays constant.
-        ensures old(spec_is_published())
-            ==> spec_get_cur_microdiem_limit() == old(spec_get_cur_microdiem_limit());
-    }
-    spec module {
-        apply DualAttestationLimitRemainsSame to * except set_microdiem_limit;
-    }
+        /// Only the one who owns Credential can rotate the dual attenstation info [[H17]][PERMISSION].
+        invariant update forall a: address where old(spec_has_credential(a)):
+            global<Credential>(a).compliance_public_key != old(global<Credential>(a).compliance_public_key)
+		     ==> Signer::is_txn_signer_addr(a);
 
-    /// Only rotate_compliance_public_key can rotate the compliance public key [[H17]][PERMISSION].
-    spec schema CompliancePublicKeyRemainsSame {
-        /// The compliance public key stays constant.
-        ensures forall addr1: address where old(spec_has_credential(addr1)):
-            global<Credential>(addr1).compliance_public_key == old(global<Credential>(addr1).compliance_public_key);
-    }
-    spec module {
-        apply CompliancePublicKeyRemainsSame to * except rotate_compliance_public_key;
-    }
+        invariant update forall a: address where old(spec_has_credential(a)):
+            global<Credential>(a).base_url != old(global<Credential>(a).base_url)
+		     ==> Signer::is_txn_signer_addr(a);
 
-    /// Only rotate_base_url can rotate the base url [[H17]][PERMISSION].
-    spec schema BaseURLRemainsSame {
-        /// The base url stays constant.
-        ensures forall addr1: address where old(spec_has_credential(addr1)):
-            global<Credential>(addr1).base_url == old(global<Credential>(addr1).base_url);
+        /// The permission "RotateDualAttestationInfo(addr)" is not transferred [[J17]][PERMISSION].
+        /// resource struct `Credential` is persistent.
+        invariant<CoinType> update forall a: address:
+            old(spec_has_credential(a)) ==> spec_has_credential(a);
     }
-    spec module {
-        apply BaseURLRemainsSame to * except rotate_base_url;
-    }
-}
 }

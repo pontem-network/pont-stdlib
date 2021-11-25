@@ -1,23 +1,25 @@
-address 0x1 {
-
 /// Module which manages account limits, like the amount of currency which can flow in or out over
 /// a given time period.
-module AccountLimits {
-    use 0x1::Errors;
-    use 0x1::DiemTimestamp;
-    use 0x1::Roles;
-    use 0x1::Signer;
+module DiemFramework::AccountLimits {
+    use DiemFramework::DiemTimestamp;
+    use DiemFramework::Roles;
+    use Std::Errors;
+    use Std::Signer;
+
+    friend DiemFramework::XDX;
+    friend DiemFramework::XUS;
+    friend DiemFramework::PONT;
+    friend DiemFramework::KSM;
 
     /// An operations capability that restricts callers of this module since
     /// the operations can mutate account states.
     struct AccountLimitMutationCapability has store { }
 
     /// A resource specifying the account limits per-currency. There is a default
-    /// "unlimited" `LimitsDefinition` resource for accounts published at
-    /// `CoreAddresses::DIEM_ROOT_ADDRESS()`, but other accounts may have
-    /// different account limit definitons. In such cases, they will have a
+    /// "unlimited" `LimitsDefinition` resource for accounts published at`@DiemRoot`, but other
+    /// accounts may have different account limit definitons. In such cases, they will have a
     /// `LimitsDefinition` published under their (root) account.
-    struct LimitsDefinition<CoinType> has key {
+    struct LimitsDefinition<phantom CoinType> has key {
         /// The maximum inflow allowed during the specified time period.
         max_inflow: u64,
         /// The maximum outflow allowed during the specified time period.
@@ -37,7 +39,7 @@ module AccountLimits {
     /// A struct holding account transaction information for the time window
     /// starting at `window_start` and lasting for the `time_period` specified
     /// in the limits definition at `limit_address`.
-    struct Window<CoinType> has key {
+    struct Window<phantom CoinType> has key {
         /// Time window start in microseconds
         window_start: u64,
         /// The inflow during this time window
@@ -74,7 +76,7 @@ module AccountLimits {
     /// Determines if depositing `amount` of `CoinType` coins into the
     /// account at `addr` is amenable with their account limits.
     /// Returns false if this deposit violates the account limits.
-    public fun update_deposit_limits<CoinType: store>(
+    public fun update_deposit_limits<CoinType>(
         amount: u64,
         addr: address,
         _cap: &AccountLimitMutationCapability,
@@ -88,6 +90,9 @@ module AccountLimits {
     spec update_deposit_limits {
         pragma opaque;
         modifies global<Window<CoinType>>(addr);
+        ensures exists<Window<CoinType>>(addr);
+        ensures global<Window<CoinType>>(addr).limit_address
+            == old(global<Window<CoinType>>(addr).limit_address);
         include UpdateDepositLimitsAbortsIf<CoinType>;
         include CanReceiveEnsures<CoinType>{receiving: global<Window<CoinType>>(addr)};
     }
@@ -108,7 +113,7 @@ module AccountLimits {
     /// Determine if withdrawing `amount` of `CoinType` coins from
     /// the account at `addr` would violate the account limits for that account.
     /// Returns `false` if this withdrawal violates account limits.
-    public fun update_withdrawal_limits<CoinType: store>(
+    public fun update_withdrawal_limits<CoinType>(
         amount: u64,
         addr: address,
         _cap: &AccountLimitMutationCapability,
@@ -122,6 +127,7 @@ module AccountLimits {
     spec update_withdrawal_limits {
         pragma opaque;
         modifies global<Window<CoinType>>(addr);
+        ensures exists<Window<CoinType>>(addr);
         include UpdateWithdrawalLimitsAbortsIf<CoinType>;
         include CanWithdrawEnsures<CoinType>{sending: global<Window<CoinType>>(addr)};
     }
@@ -139,12 +145,11 @@ module AccountLimits {
     /// `Window` for each currency they can hold published at the top level.
     /// Root accounts for multi-account entities will hold this resource at
     /// their root/parent account.
-    public fun publish_window<CoinType: store>(
+    public fun publish_window<CoinType>(
         dr_account: &signer,
         to_limit: &signer,
         limit_address: address,
     ) {
-        Roles::assert_restricted();
         Roles::assert_diem_root(dr_account);
         assert(exists<LimitsDefinition<CoinType>>(limit_address), Errors::not_published(ELIMITS_DEFINITION));
         Roles::assert_parent_vasp_or_child_vasp(to_limit);
@@ -175,7 +180,7 @@ module AccountLimits {
 
         include Roles::AbortsIfNotDiemRoot{account: dr_account};
         aborts_if !exists<LimitsDefinition<CoinType>>(limit_address) with Errors::NOT_PUBLISHED;
-        aborts_if exists<Window<CoinType>>(Signer::spec_address_of(to_limit)) with Errors::ALREADY_PUBLISHED;
+        aborts_if exists<Window<CoinType>>(Signer::address_of(to_limit)) with Errors::ALREADY_PUBLISHED;
     }
 
     /// Unrestricted limits are represented by setting all fields in the
@@ -184,7 +189,7 @@ module AccountLimits {
     /// TC account, or a caller with access to a `&AccountLimitMutationCapability` points a
     /// window to it. Additionally, the TC controls the values held within this
     /// resource once it's published.
-    public fun publish_unrestricted_limits<CoinType: store>(publish_account: &signer) {
+    public(friend) fun publish_unrestricted_limits<CoinType>(publish_account: &signer) {
         assert(
             !exists<LimitsDefinition<CoinType>>(Signer::address_of(publish_account)),
             Errors::already_published(ELIMITS_DEFINITION)
@@ -200,28 +205,32 @@ module AccountLimits {
         )
     }
     spec publish_unrestricted_limits {
-        /// TODO: turned off verification until we solve the
-        /// generic type/specific invariant issue. Similar to
-        /// in DiemConfig, this function violates an invariant in
-        /// XUS about LimitsDefinition<XUS>.
-        pragma verify = false;
+        pragma delegate_invariants_to_caller;
         include PublishUnrestrictedLimitsAbortsIf<CoinType>;
     }
     spec schema PublishUnrestrictedLimitsAbortsIf<CoinType> {
         publish_account: signer;
-        aborts_if exists<LimitsDefinition<CoinType>>(Signer::spec_address_of(publish_account))
+        aborts_if exists<LimitsDefinition<CoinType>>(Signer::address_of(publish_account))
             with Errors::ALREADY_PUBLISHED;
     }
     spec schema PublishUnrestrictedLimitsEnsures<CoinType> {
         publish_account: signer;
-        ensures exists<LimitsDefinition<CoinType>>(Signer::spec_address_of(publish_account));
+        ensures exists<LimitsDefinition<CoinType>>(Signer::address_of(publish_account));
+    }
+
+    // #[test_only]
+    // TODO: remove this comment when the relevant tests in functional and language-e2e testsuites
+    // are ported to the unit testing framework
+    public fun publish_unrestricted_limits_for_testing<CoinType>(publish_account: &signer) {
+        publish_unrestricted_limits<CoinType>(publish_account);
+    }
+    spec publish_unrestricted_limits_for_testing {
+        pragma verify = false;
     }
 
     /// Updates the `LimitsDefinition<CoinType>` resource at `limit_address`.
     /// If any of the field arguments is `0` the corresponding field is not updated.
-    ///
-    /// TODO: This should be specified.
-    public fun update_limits_definition<CoinType: store>(
+    public fun update_limits_definition<CoinType>(
         tc_account: &signer,
         limit_address: address,
         new_max_inflow: u64,
@@ -229,16 +238,32 @@ module AccountLimits {
         new_max_holding_balance: u64,
         new_time_period: u64,
     ) acquires LimitsDefinition {
-        Roles::assert_restricted();
         Roles::assert_treasury_compliance(tc_account);
+        assert(exists<LimitsDefinition<CoinType>>(limit_address), Errors::not_published(ELIMITS_DEFINITION));
+
         // As we don't have Optionals for txn scripts, in update_account_limit_definition.move
         // we use 0 value to represent a None (ie no update to that variable)
-        assert(exists<LimitsDefinition<CoinType>>(limit_address), Errors::not_published(ELIMITS_DEFINITION));
         let limits_def = borrow_global_mut<LimitsDefinition<CoinType>>(limit_address);
         if (new_max_inflow > 0) { limits_def.max_inflow = new_max_inflow };
         if (new_max_outflow > 0) { limits_def.max_outflow = new_max_outflow };
         if (new_max_holding_balance > 0) { limits_def.max_holding = new_max_holding_balance };
         if (new_time_period > 0) { limits_def.time_period = new_time_period };
+    }
+    spec update_limits_definition {
+        modifies global<LimitsDefinition<CoinType>>(limit_address);
+        include Roles::AbortsIfNotTreasuryCompliance{account: tc_account};
+        aborts_if !exists<LimitsDefinition<CoinType>>(limit_address) with Errors::NOT_PUBLISHED;
+        ensures exists<LimitsDefinition<CoinType>>(limit_address);
+        let old_limits_def = global<LimitsDefinition<CoinType>>(limit_address);
+        let post new_limits_def = global<LimitsDefinition<CoinType>>(limit_address);
+        ensures new_max_inflow > 0 ==> new_limits_def.max_inflow == new_max_inflow;
+        ensures new_max_inflow == 0 ==> new_limits_def.max_inflow == old_limits_def.max_inflow;
+        ensures new_max_outflow > 0 ==> new_limits_def.max_outflow == new_max_outflow;
+        ensures new_max_outflow == 0 ==> new_limits_def.max_outflow == old_limits_def.max_outflow;
+        ensures new_max_holding_balance > 0 ==> new_limits_def.max_holding == new_max_holding_balance;
+        ensures new_max_holding_balance == 0 ==> new_limits_def.max_holding == old_limits_def.max_holding;
+        ensures new_time_period > 0 ==> new_limits_def.time_period == new_time_period;
+        ensures new_time_period == 0 ==> new_limits_def.time_period == old_limits_def.time_period;
     }
 
     /// Update either the `tracked_balance` or `limit_address` fields of the
@@ -251,19 +276,32 @@ module AccountLimits {
     ///   `new_limit_address`. If the `aggregate_balance` needs to be updated
     ///   but the `limit_address` should remain the same, the current
     ///   `limit_address` needs to be passed in for `new_limit_address`.
-    /// TODO(wrwg): specify
-    public fun update_window_info<CoinType: store>(
+    public fun update_window_info<CoinType>(
         tc_account: &signer,
         window_address: address,
         aggregate_balance: u64,
         new_limit_address: address,
     ) acquires Window {
-        Roles::assert_restricted();
         Roles::assert_treasury_compliance(tc_account);
         let window = borrow_global_mut<Window<CoinType>>(window_address);
         if (aggregate_balance != 0)  { window.tracked_balance = aggregate_balance };
         assert(exists<LimitsDefinition<CoinType>>(new_limit_address), Errors::not_published(ELIMITS_DEFINITION));
         window.limit_address = new_limit_address;
+    }
+    spec update_window_info {
+        modifies global<Window<CoinType>>(window_address);
+        include Roles::AbortsIfNotTreasuryCompliance{account: tc_account};
+        aborts_if !exists<Window<CoinType>>(window_address);
+        aborts_if !exists<LimitsDefinition<CoinType>>(new_limit_address) with Errors::NOT_PUBLISHED;
+        ensures exists<Window<CoinType>>(window_address);
+        let old_window = global<Window<CoinType>>(window_address);
+        let post new_window = global<Window<CoinType>>(window_address);
+        ensures aggregate_balance != 0 ==> new_window.tracked_balance == aggregate_balance;
+        ensures aggregate_balance == 0 ==> new_window.tracked_balance == old_window.tracked_balance;
+        ensures new_window.limit_address == new_limit_address;
+        ensures new_window.window_start == old_window.window_start;
+        ensures new_window.window_inflow == old_window.window_inflow;
+        ensures new_window.window_outflow == old_window.window_outflow;
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -273,7 +311,7 @@ module AccountLimits {
     /// If the time window starting at `window.window_start` and lasting for
     /// `limits_definition.time_period` has elapsed, resets the window and
     /// the inflow and outflow records.
-    fun reset_window<CoinType: store>(window: &mut Window<CoinType>, limits_definition: &LimitsDefinition<CoinType>) {
+    fun reset_window<CoinType>(window: &mut Window<CoinType>, limits_definition: &LimitsDefinition<CoinType>) {
         let current_time = DiemTimestamp::now_microseconds();
         assert(window.window_start <= MAX_U64 - limits_definition.time_period, Errors::limit_exceeded(EWINDOW));
         if (current_time > window.window_start + limits_definition.time_period) {
@@ -328,7 +366,7 @@ module AccountLimits {
     /// specified the `limits_definition` passed in.
     /// If the receipt of `amount` doesn't violate the limits `amount` of
     /// `CoinType` is recorded as received in the given `receiving` window.
-    fun can_receive_and_update_window<CoinType: store>(
+    fun can_receive_and_update_window<CoinType>(
         amount: u64,
         receiving: &mut Window<CoinType>,
     ): bool acquires LimitsDefinition {
@@ -415,7 +453,7 @@ module AccountLimits {
     /// in its `limits_definition`.
     /// If the withdrawal of `amount` doesn't violate the limits `amount` of
     /// `CoinType` is recorded as withdrawn in the given `sending` window.
-    fun can_withdraw_and_update_window<CoinType: store>(
+    fun can_withdraw_and_update_window<CoinType>(
         amount: u64,
         sending: &mut Window<CoinType>,
     ): bool acquires LimitsDefinition {
@@ -481,7 +519,7 @@ module AccountLimits {
     }
 
     /// Determine whether the `LimitsDefinition` resource has no restrictions.
-    fun is_unrestricted<CoinType: store>(limits_def: &LimitsDefinition<CoinType>): bool {
+    fun is_unrestricted<CoinType>(limits_def: &LimitsDefinition<CoinType>): bool {
         limits_def.max_inflow == MAX_U64 &&
         limits_def.max_outflow == MAX_U64 &&
         limits_def.max_holding == MAX_U64 &&
@@ -502,15 +540,15 @@ module AccountLimits {
         }
     }
 
-    public fun limits_definition_address<CoinType: store>(addr: address): address acquires Window {
+    public fun limits_definition_address<CoinType>(addr: address): address acquires Window {
         borrow_global<Window<CoinType>>(addr).limit_address
     }
 
-    public fun has_limits_published<CoinType: store>(addr: address): bool {
+    public fun has_limits_published<CoinType>(addr: address): bool {
         exists<LimitsDefinition<CoinType>>(addr)
     }
 
-    public fun has_window_published<CoinType: store>(addr: address): bool {
+    public fun has_window_published<CoinType>(addr: address): bool {
         exists<Window<CoinType>>(addr)
     }
     spec has_window_published {
@@ -533,31 +571,30 @@ module AccountLimits {
 
     spec module {
         /// `LimitsDefinition<CoinType>` persists after publication.
-        invariant update
-            forall addr: address, coin_type: type where old(exists<LimitsDefinition<coin_type>>(addr)):
-                exists<LimitsDefinition<coin_type>>(addr);
+        invariant<CoinType> update
+            forall addr: address where old(exists<LimitsDefinition<CoinType>>(addr)):
+                exists<LimitsDefinition<CoinType>>(addr);
 
         /// `Window<CoinType>` persists after publication
-        invariant update
-            forall window_addr: address, coin_type: type where old(exists<Window<coin_type>>(window_addr)):
-                exists<Window<coin_type>>(window_addr);
+        invariant<CoinType> update
+            forall window_addr: address where old(exists<Window<CoinType>>(window_addr)):
+                exists<Window<CoinType>>(window_addr);
 
         /// Invariant that `LimitsDefinition` exists if a `Window` exists.
-        invariant
-           forall window_addr: address, coin_type: type where exists<Window<coin_type>>(window_addr):
-                exists<LimitsDefinition<coin_type>>(global<Window<coin_type>>(window_addr).limit_address);
+        invariant<CoinType>
+           forall window_addr: address where exists<Window<CoinType>>(window_addr):
+                exists<LimitsDefinition<CoinType>>(global<Window<CoinType>>(window_addr).limit_address);
     }
 
     /// # Access Control
 
     spec module {
         /// Only ParentVASP and ChildVASP can have the account limits [[E1]][ROLE][[E2]][ROLE][[E3]][ROLE][[E4]][ROLE][[E5]][ROLE][[E6]][ROLE][[E7]][ROLE].
-        invariant
-            forall addr: address, coin_type: type where exists<Window<coin_type>>(addr):
+        invariant<CoinType>
+            forall addr: address where exists<Window<CoinType>>(addr):
                 exists<Roles::RoleId>(addr) &&
                 (global<Roles::RoleId>(addr).role_id == Roles::PARENT_VASP_ROLE_ID ||
                     global<Roles::RoleId>(addr).role_id == Roles::CHILD_VASP_ROLE_ID);
     }
 
-}
 }

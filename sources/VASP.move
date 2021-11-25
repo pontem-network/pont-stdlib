@@ -1,15 +1,13 @@
-address 0x1 {
-
 /// A VASP is one type of balance-holding account on the blockchain. VASPs from a two-layer
 /// hierarchy.  The main account, called a "parent VASP" and a collection of "child VASP"s.
 /// This module provides functions to manage VASP accounts.
-
-module VASP {
-    use 0x1::Errors;
-    use 0x1::DiemTimestamp;
-    use 0x1::Signer;
-    use 0x1::Roles;
-    use 0x1::AccountLimits;
+module DiemFramework::VASP {
+    use DiemFramework::DiemTimestamp;
+    use DiemFramework::Roles;
+    use DiemFramework::AccountLimits;
+    use Std::Errors;
+    use Std::Signer;
+    friend DiemFramework::DiemAccount;
 
     /// Each VASP has a unique root account that holds a `ParentVASP` resource. This resource holds
     /// the VASP's globally unique name and all of the metadata that other VASPs need to perform
@@ -42,7 +40,7 @@ module VASP {
     /// Create a new `ParentVASP` resource under `vasp`
     /// Aborts if `dr_account` is not the diem root account,
     /// or if there is already a VASP (child or parent) at this account.
-    public fun publish_parent_vasp_credential(vasp: &signer, tc_account: &signer) {
+    public(friend) fun publish_parent_vasp_credential(vasp: &signer, tc_account: &signer) {
         DiemTimestamp::assert_operating();
         Roles::assert_treasury_compliance(tc_account);
         Roles::assert_parent_vasp_role(vasp);
@@ -55,7 +53,7 @@ module VASP {
         include DiemTimestamp::AbortsIfNotOperating;
         include Roles::AbortsIfNotTreasuryCompliance{account: tc_account};
         include Roles::AbortsIfNotParentVasp{account: vasp};
-        let vasp_addr = Signer::spec_address_of(vasp);
+        let vasp_addr = Signer::address_of(vasp);
         aborts_if is_vasp(vasp_addr) with Errors::ALREADY_PUBLISHED;
         include PublishParentVASPEnsures{vasp_addr: vasp_addr};
     }
@@ -68,7 +66,7 @@ module VASP {
 
     /// Create a child VASP resource for the `parent`
     /// Aborts if `parent` is not a ParentVASP
-    public fun publish_child_vasp_credential(
+    public(friend) fun publish_child_vasp_credential(
         parent: &signer,
         child: &signer,
     ) acquires ParentVASP {
@@ -85,18 +83,18 @@ module VASP {
         move_to(child, ChildVASP { parent_vasp_addr });
     }
     spec publish_child_vasp_credential {
-        let child_addr = Signer::spec_address_of(child);
+        let child_addr = Signer::address_of(child);
         include PublishChildVASPAbortsIf{child_addr};
         // NB: This aborts condition is separated out so that `PublishChildVASPAbortsIf` can be used in
         //     `DiemAccount::create_child_vasp_account` since this doesn't hold of the new account in the pre-state.
         include Roles::AbortsIfNotChildVasp{account: child_addr};
-        include PublishChildVASPEnsures{parent_addr: Signer::spec_address_of(parent), child_addr: child_addr};
+        include PublishChildVASPEnsures{parent_addr: Signer::address_of(parent), child_addr: child_addr};
     }
 
     spec schema PublishChildVASPAbortsIf {
         parent: signer;
         child_addr: address;
-        let parent_addr = Signer::spec_address_of(parent);
+        let parent_addr = Signer::address_of(parent);
         include Roles::AbortsIfNotParentVasp{account: parent};
         aborts_if is_vasp(child_addr) with Errors::ALREADY_PUBLISHED;
         aborts_if !is_parent(parent_addr) with Errors::INVALID_ARGUMENT;
@@ -114,7 +112,7 @@ module VASP {
     /// Return `true` if `addr` is a parent or child VASP whose parent VASP account contains an
     /// `AccountLimits<CoinType>` resource.
     /// Aborts if `addr` is not a VASP
-    public fun has_account_limits<CoinType: store>(addr: address): bool acquires ChildVASP {
+    public fun has_account_limits<CoinType>(addr: address): bool acquires ChildVASP {
         AccountLimits::has_window_published<CoinType>(parent_address(addr))
     }
 
@@ -267,7 +265,5 @@ module VASP {
         invariant update
             forall a: address where old(is_child(a)): spec_parent_address(a) == old(spec_parent_address(a));
     }
-
-}
 
 }

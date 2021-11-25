@@ -1,15 +1,13 @@
-address 0x1 {
-
 /// PONT Coin. The one and only.
 /// Put into separate module to highlight its importance and role in Pontem
 /// ecosystem. Also moved not to be mistaken for peg-zone coin. Same-naming
 /// attack from peg-zone is impossible when XFI coin moved outside of Coins module
-module PONT {
-    use 0x1::AccountLimits;
-    use 0x1::CoreAddresses;
-    use 0x1::FixedPoint32;
-    use 0x1::Diem;
-    use 0x1::DiemTimestamp;
+module DiemFramework::PONT {
+    use DiemFramework::AccountLimits;
+    use DiemFramework::CoreAddresses;
+    use Std::FixedPoint32;
+    use DiemFramework::Diem;
+    use DiemFramework::DiemTimestamp;
 
     struct PONT has key, store {}
 
@@ -39,5 +37,4 @@ module PONT {
         Diem::update_minting_ability<PONT>(tc_account, false);
         move_to(dr_account, Drop {mint_cap, burn_cap});
     }
-}
 }

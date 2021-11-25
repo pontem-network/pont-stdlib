@@ -1,15 +1,10 @@
-address 0x1 {
-
 /// Module managing Diem ID.
-module DiemId {
-
-    use 0x1::Event::{Self, EventHandle};
-    use 0x1::Vector;
-    use 0x1::CoreAddresses;
-    use 0x1::Roles;
-    use 0x1::Errors;
-    use 0x1::Signer;
-    use 0x1::DiemTimestamp;
+module DiemFramework::DiemId {
+    use Std::Event::{Self, EventHandle};
+    use DiemFramework::Roles;
+    use Std::Errors;
+    use Std::Signer;
+    use Std::Vector;
 
     /// This resource holds an entity's domain names needed to send and receive payments using diem IDs.
     struct DiemIdDomains has key {
@@ -93,7 +88,7 @@ module DiemId {
         })
     }
     spec publish_diem_id_domains {
-        let vasp_addr = Signer::spec_address_of(vasp_account);
+        let vasp_addr = Signer::address_of(vasp_account);
         include Roles::AbortsIfNotParentVasp{account: vasp_account};
         include PublishDiemIdDomainsAbortsIf;
         include PublishDiemIdDomainsEnsures;
@@ -122,7 +117,6 @@ module DiemId {
     public fun publish_diem_id_domain_manager(
         tc_account : &signer,
     ) {
-        DiemTimestamp::assert_genesis();
         Roles::assert_treasury_compliance(tc_account);
         assert(
             !exists<DiemIdDomainManager>(Signer::address_of(tc_account)),
@@ -138,8 +132,8 @@ module DiemId {
     spec publish_diem_id_domain_manager {
         include Roles::AbortsIfNotTreasuryCompliance{account: tc_account};
         aborts_if tc_domain_manager_exists() with Errors::ALREADY_PUBLISHED;
-        ensures exists<DiemIdDomainManager>(Signer::spec_address_of(tc_account));
-        modifies global<DiemIdDomainManager>(Signer::spec_address_of(tc_account));
+        ensures exists<DiemIdDomainManager>(Signer::address_of(tc_account));
+        modifies global<DiemIdDomainManager>(Signer::address_of(tc_account));
     }
 
     /// Add a DiemIdDomain to a parent VASP's DiemIdDomains resource.
@@ -169,7 +163,7 @@ module DiemId {
         Vector::push_back(&mut account_domains.domains, copy diem_id_domain);
 
         Event::emit_event(
-            &mut borrow_global_mut<DiemIdDomainManager>(CoreAddresses::TREASURY_COMPLIANCE_ADDRESS()).diem_id_domain_events,
+            &mut borrow_global_mut<DiemIdDomainManager>(@TreasuryCompliance).diem_id_domain_events,
             DiemIdDomainEvent {
                 removed: false,
                 domain: diem_id_domain,
@@ -202,7 +196,7 @@ module DiemId {
     spec schema AddDiemIdDomainEmits {
         address: address;
         domain: vector<u8>;
-        let handle = global<DiemIdDomainManager>(CoreAddresses::TREASURY_COMPLIANCE_ADDRESS()).diem_id_domain_events;
+        let handle = global<DiemIdDomainManager>(@TreasuryCompliance).diem_id_domain_events;
         let msg = DiemIdDomainEvent {
             removed: false,
             domain: DiemIdDomain { domain },
@@ -217,7 +211,6 @@ module DiemId {
         address: address,
         domain: vector<u8>,
     ) acquires DiemIdDomainManager, DiemIdDomains {
-        Roles::assert_restricted();
         Roles::assert_treasury_compliance(tc_account);
         assert(tc_domain_manager_exists(), Errors::not_published(EDIEM_ID_DOMAIN_MANAGER));
         assert(
@@ -236,7 +229,7 @@ module DiemId {
         };
 
         Event::emit_event(
-            &mut borrow_global_mut<DiemIdDomainManager>(CoreAddresses::TREASURY_COMPLIANCE_ADDRESS()).diem_id_domain_events,
+            &mut borrow_global_mut<DiemIdDomainManager>(@TreasuryCompliance).diem_id_domain_events,
             DiemIdDomainEvent {
                 removed: true,
                 domain: diem_id_domain,
@@ -270,7 +263,7 @@ module DiemId {
         tc_account: signer;
         address: address;
         domain: vector<u8>;
-        let handle = global<DiemIdDomainManager>(CoreAddresses::TREASURY_COMPLIANCE_ADDRESS()).diem_id_domain_events;
+        let handle = global<DiemIdDomainManager>(@TreasuryCompliance).diem_id_domain_events;
         let msg = DiemIdDomainEvent {
             removed: true,
             domain: DiemIdDomain { domain },
@@ -301,11 +294,10 @@ module DiemId {
     }
 
     public fun tc_domain_manager_exists(): bool {
-        exists<DiemIdDomainManager>(CoreAddresses::TREASURY_COMPLIANCE_ADDRESS())
+        exists<DiemIdDomainManager>(@TreasuryCompliance)
     }
     spec tc_domain_manager_exists {
         aborts_if false;
-        ensures result == exists<DiemIdDomainManager>(CoreAddresses::TREASURY_COMPLIANCE_ADDRESS());
+        ensures result == exists<DiemIdDomainManager>(@TreasuryCompliance);
     }
-}
 }

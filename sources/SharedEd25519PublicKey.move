@@ -1,14 +1,12 @@
-address 0x1 {
-
 /// Each address that holds a `SharedEd25519PublicKey` resource can rotate the public key stored in
 /// this resource, but the account's authentication key will be updated in lockstep. This ensures
 /// that the two keys always stay in sync.
-module SharedEd25519PublicKey {
-    use 0x1::Authenticator;
-    use 0x1::Errors;
-    use 0x1::DiemAccount;
-    use 0x1::Signature;
-    use 0x1::Signer;
+module DiemFramework::SharedEd25519PublicKey {
+    use DiemFramework::Authenticator;
+    use DiemFramework::DiemAccount;
+    use DiemFramework::Signature;
+    use Std::Errors;
+    use Std::Signer;
 
     /// A resource that forces the account associated with `rotation_cap` to use a ed25519
     /// authentication key derived from `key`
@@ -45,7 +43,7 @@ module SharedEd25519PublicKey {
     spec schema PublishAbortsIf {
         account: signer;
         key: vector<u8>;
-        let addr = Signer::spec_address_of(account);
+        let addr = Signer::address_of(account);
         include DiemAccount::ExtractKeyRotationCapabilityAbortsIf;
         include RotateKey_AbortsIf {
                 shared_key: SharedEd25519PublicKey {
@@ -59,7 +57,7 @@ module SharedEd25519PublicKey {
     spec schema PublishEnsures {
         account: signer;
         key: vector<u8>;
-        let addr = Signer::spec_address_of(account);
+        let addr = Signer::address_of(account);
 
         ensures exists_at(addr);
         include RotateKey_Ensures { shared_key: global<SharedEd25519PublicKey>(addr), new_public_key: key};
@@ -114,14 +112,14 @@ module SharedEd25519PublicKey {
     spec schema RotateKeyAbortsIf {
         account: signer;
         new_public_key: vector<u8>;
-        let addr = Signer::spec_address_of(account);
+        let addr = Signer::address_of(account);
         aborts_if !exists_at(addr) with Errors::NOT_PUBLISHED;
         include RotateKey_AbortsIf {shared_key: global<SharedEd25519PublicKey>(addr)};
     }
     spec schema RotateKeyEnsures {
         account: signer;
         new_public_key: vector<u8>;
-        let addr = Signer::spec_address_of(account);
+        let addr = Signer::address_of(account);
         include RotateKey_Ensures {shared_key: global<SharedEd25519PublicKey>(addr)};
     }
 
@@ -148,5 +146,4 @@ module SharedEd25519PublicKey {
             exists<SharedEd25519PublicKey>(addr);
     }
 
-}
 }

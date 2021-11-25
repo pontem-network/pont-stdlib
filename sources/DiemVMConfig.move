@@ -1,13 +1,10 @@
-address 0x1 {
-
 /// This module defines structs and methods to initialize VM configurations,
 /// including different costs of running the VM.
-module DiemVMConfig {
-    use 0x1::DiemConfig::{Self, DiemConfig};
-    use 0x1::DiemTimestamp;
-    use 0x1::CoreAddresses;
-    use 0x1::Roles;
-    use 0x1::Errors;
+module DiemFramework::DiemVMConfig {
+    use DiemFramework::DiemConfig::{Self, DiemConfig};
+    use DiemFramework::DiemTimestamp;
+    use DiemFramework::Roles;
+    use Std::Errors;
 
     /// The provided gas constants were inconsistent.
     const EGAS_CONSTANT_INCONSISTENCY: u64 = 0;
@@ -153,7 +150,6 @@ module DiemVMConfig {
         default_account_size: u64,
     ) {
         DiemTimestamp::assert_operating();
-        Roles::assert_restricted();
         Roles::assert_diem_root(dr_account);
         assert(
             min_price_per_gas_unit <= max_price_per_gas_unit,
@@ -217,19 +213,30 @@ module DiemVMConfig {
     /// # Initialization
 
     spec module {
-        invariant DiemTimestamp::is_operating() ==> DiemConfig::spec_is_published<DiemVMConfig>();
+        invariant [suspendable] DiemTimestamp::is_operating() ==> DiemConfig::spec_is_published<DiemVMConfig>();
     }
 
     /// # Access Control
 
+    /// The permission "UpdateVMConfig" is granted to DiemRoot [[H11]][PERMISSION].
+    spec module {
+        invariant [suspendable] forall addr: address
+            where exists<DiemConfig<DiemVMConfig>>(addr): addr == @DiemRoot;
+
+        invariant update [suspendable] old(DiemConfig::spec_is_published<DiemVMConfig>())
+            && DiemConfig::spec_is_published<DiemVMConfig>()
+            && old(DiemConfig::get<DiemVMConfig>()) != DiemConfig::get<DiemVMConfig>()
+                ==> Roles::spec_signed_by_diem_root_role();
+    }
+
+    // TODO: The following is the old style spec, which can removed later.
     /// No one can update DiemVMConfig except for the Diem Root account [[H11]][PERMISSION].
     spec schema DiemVMConfigRemainsSame {
         ensures old(DiemConfig::spec_is_published<DiemVMConfig>()) ==>
-            global<DiemConfig<DiemVMConfig>>(CoreAddresses::DIEM_ROOT_ADDRESS()) ==
-                old(global<DiemConfig<DiemVMConfig>>(CoreAddresses::DIEM_ROOT_ADDRESS()));
+            global<DiemConfig<DiemVMConfig>>(@DiemRoot) ==
+                old(global<DiemConfig<DiemVMConfig>>(@DiemRoot));
     }
     spec module {
         apply DiemVMConfigRemainsSame to * except set_gas_constants;
     }
-}
 }

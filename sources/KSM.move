@@ -1,15 +1,13 @@
-address 0x1 {
-
 /// KSM (Kusama) Coin. The one and only.
 /// Put into separate module to highlight its importance and role in Pontem
 /// ecosystem. Also moved not to be mistaken for peg-zone coin. Same-naming
 /// attack from peg-zone is impossible when XFI coin moved outside of Coins module
-module KSM {
-    use 0x1::AccountLimits;
-    use 0x1::CoreAddresses;
-    use 0x1::FixedPoint32;
-    use 0x1::Diem;
-    use 0x1::DiemTimestamp;
+module DiemFramework::KSM {
+    use DiemFramework::AccountLimits;
+    use DiemFramework::CoreAddresses;
+    use Std::FixedPoint32;
+    use DiemFramework::Diem;
+    use DiemFramework::DiemTimestamp;
 
     struct KSM has key, store {}
 
@@ -40,4 +38,4 @@ module KSM {
         move_to(dr_account, Drop {mint_cap, burn_cap});
     }
 }
-}
+
