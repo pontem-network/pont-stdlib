@@ -4,13 +4,10 @@ module DiemFramework::DiemBlock {
     use DiemFramework::DiemSystem;
     use DiemFramework::DiemTimestamp;
     use Std::Errors;
-    use Std::Event;
 
     struct BlockMetadata has key {
         /// Height of the current block
         height: u64,
-        /// Handle where events with the time of new blocks are emitted
-        new_block_events: Event::EventHandle<Self::NewBlockEvent>,
     }
 
     struct NewBlockEvent has drop, store {
@@ -39,7 +36,6 @@ module DiemFramework::DiemBlock {
             account,
             BlockMetadata {
                 height: 0,
-                new_block_events: Event::new_event_handle<Self::NewBlockEvent>(account),
             }
         );
     }
@@ -60,9 +56,7 @@ module DiemFramework::DiemBlock {
     /// The runtime always runs this before executing the transactions in a block.
     fun block_prologue(
         vm: signer,
-        round: u64,
         timestamp: u64,
-        previous_block_votes: vector<address>,
         proposer: address
     ) acquires BlockMetadata {
         DiemTimestamp::assert_operating();
@@ -78,15 +72,6 @@ module DiemFramework::DiemBlock {
         let block_metadata_ref = borrow_global_mut<BlockMetadata>(@DiemRoot);
         DiemTimestamp::update_global_time(&vm, proposer, timestamp);
         block_metadata_ref.height = block_metadata_ref.height + 1;
-        Event::emit_event<NewBlockEvent>(
-            &mut block_metadata_ref.new_block_events,
-            NewBlockEvent {
-                round,
-                proposer,
-                previous_block_votes,
-                time_microseconds: timestamp,
-            }
-        );
     }
     spec block_prologue {
         include DiemTimestamp::AbortsIfNotOperating;
