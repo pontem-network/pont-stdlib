@@ -919,10 +919,10 @@ module DiemFramework::DiemAccount {
         assert(exists_at(cap.account_address), Errors::not_published(EACCOUNT));
         let sender_account_resource = borrow_global_mut<DiemAccount>(cap.account_address);
         // Don't allow rotating to clearly invalid key
-        assert(
-            Vector::length(&new_authentication_key) == 64,
-            Errors::invalid_argument(EMALFORMED_AUTHENTICATION_KEY)
-        );
+//        assert(
+//            Vector::length(&new_authentication_key) == 64,
+//            Errors::invalid_argument(EMALFORMED_AUTHENTICATION_KEY)
+//        );
         sender_account_resource.authentication_key = new_authentication_key;
     }
     spec rotate_authentication_key {
@@ -1160,10 +1160,10 @@ module DiemFramework::DiemAccount {
         Vector::append(
             &mut authentication_key, BCS::to_bytes(Signer::borrow_address(account))
         );
-        assert(
-            Vector::length(&authentication_key) == 64,
-            Errors::invalid_argument(EMALFORMED_AUTHENTICATION_KEY)
-        );
+//        assert(
+//            Vector::length(&authentication_key) == 64,
+//            Errors::invalid_argument(EMALFORMED_AUTHENTICATION_KEY)
+//        );
         authentication_key
     }
     spec create_authentication_key {
