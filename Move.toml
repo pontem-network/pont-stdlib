@@ -1,5 +1,5 @@
 [package]
-name = "move-stdlib"
+name = "PontStdLib"
 version = "0.1.5"
 authors = []
 dialect = "Pont"
@@ -14,5 +14,5 @@ CurrencyInfo = "0xA550C18"
 VMReserved = "0x0"
 
 [dependencies.MoveStdlib]
-git = "https://github.com/pontem-network/diem-stdlib.git"
+git = "https://github.com/pontem-network/move-stdlib.git"
 rev = "main"

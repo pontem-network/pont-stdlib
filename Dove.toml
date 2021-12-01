@@ -1,4 +1,0 @@
-[package]
-name = "move-stdlib"
-dove_version = ">=1.3.0"
-dependencies = []
