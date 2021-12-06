@@ -12,13 +12,6 @@ module DiemFramework::Roles {
     use Std::Signer;
     friend DiemFramework::DiemAccount;
 
-    #[test_only]
-    friend DiemFramework::RolesTests;
-    #[test_only]
-    friend DiemFramework::ValidatorOperatorConfigTests;
-    #[test_only]
-    friend DiemFramework::ValidatorConfigTests;
-
     /// A `RoleId` resource was in an unexpected state
     const EROLE_ID: u64 = 0;
     /// The signer didn't have the required Diem Root role

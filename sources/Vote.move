@@ -15,8 +15,6 @@ module DiemFramework::Vote {
     use Std::Signer;
     use Std::Vector;
     use DiemFramework::DiemTimestamp;
-    #[test_only]
-    friend DiemFramework::VoteTests;
 
     /// An unique identifier for a ballot. A counter is stored
     /// under each proposers address which is incremented
