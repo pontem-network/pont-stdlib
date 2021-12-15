@@ -2,7 +2,8 @@
 /// when executing from a fresh state.
 module PontemFramework::Genesis {
     use PontemFramework::PontTimestamp;
-    
+    use PontemFramework::PontBlock;
+
     /// Initializes the Diem framework.
     fun initialize(
         root_account: signer,
@@ -16,6 +17,7 @@ module PontemFramework::Genesis {
     fun initialize_internal(
         root_account: &signer,
     ) {
+        PontBlock::initialize_block_metadata(root_account);
         PontTimestamp::set_time_has_started(root_account);
     }
 
