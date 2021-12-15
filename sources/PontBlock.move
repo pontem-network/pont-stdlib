@@ -9,19 +9,8 @@ module PontemFramework::PontBlock {
         height: u64,
     }
 
-    struct NewBlockEvent has drop, store {
-        round: u64,
-        proposer: address,
-        previous_block_votes: vector<address>,
-
-        /// On-chain time during  he block at the given height
-        time_microseconds: u64,
-    }
-
     /// The `BlockMetadata` resource is in an invalid state
     const EBLOCK_METADATA: u64 = 0;
-    /// An invalid signer was provided. Expected the signer to be the VM or a Validator.
-    const EVM_OR_VALIDATOR: u64 = 1;
 
     /// This can only be invoked by the Association address, and only a single time.
     /// Currently, it is invoked in the genesis transaction
