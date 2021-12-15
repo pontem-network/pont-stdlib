@@ -5,7 +5,7 @@ module PontemFramework::Genesis {
     use PontemFramework::PontBlock;
     use PontemFramework::ChainId;
 
-    /// Initializes the Diem framework.
+    /// Initializes the Pontem framework.
     fun initialize(
         root_account: signer,
         chain_id: u8,
