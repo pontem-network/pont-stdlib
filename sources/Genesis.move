@@ -3,22 +3,27 @@
 module PontemFramework::Genesis {
     use PontemFramework::PontTimestamp;
     use PontemFramework::PontBlock;
+    use PontemFramework::ChainId;
 
     /// Initializes the Diem framework.
     fun initialize(
         root_account: signer,
+        chain_id: u8,
     ) {
         initialize_internal(
-            &root_account
+            &root_account,
+            chain_id,
         )
     }
 
     /// Initializes the Pontem Framework. Internal so it can be used by both genesis code, and for testing purposes
     fun initialize_internal(
         root_account: &signer,
+        chain_id: u8,
     ) {
         PontBlock::initialize_block_metadata(root_account);
         PontTimestamp::set_time_has_started(root_account);
+        ChainId::initialize(root_account, chain_id);
     }
 
     /// For verification of genesis, the goal is to prove that all the invariants which
