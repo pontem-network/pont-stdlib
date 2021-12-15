@@ -1,5 +1,5 @@
 [package]
-name = "move-stdlib"
+name = "pont-stdlib"
 version = "0.0.1"
 authors = []
 dialect = "Pont"
