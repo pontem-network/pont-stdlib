@@ -82,7 +82,7 @@ module PontemFramework::PontTimestamp {
 
     /// Helper function to assert genesis state.
     public fun assert_genesis() {
-        assert!(is_genesis(), Errors::invalid_state(ENOT_GENESIS));
+        assert(is_genesis(), Errors::invalid_state(ENOT_GENESIS));
     }
     spec assert_genesis {
         pragma opaque = true;
@@ -102,7 +102,7 @@ module PontemFramework::PontTimestamp {
 
     /// Helper function to assert operating (!genesis) state.
     public fun assert_operating() {
-        assert!(is_operating(), Errors::invalid_state(ENOT_OPERATING));
+        assert(is_operating(), Errors::invalid_state(ENOT_OPERATING));
     }
     spec assert_operating {
         pragma opaque = true;

@@ -1,3 +1,4 @@
 target
 .Dove.man
 .vscode
+build/

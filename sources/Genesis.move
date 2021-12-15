@@ -2,9 +2,7 @@
 /// when executing from a fresh state.
 module PontemFramework::Genesis {
     use PontemFramework::PontTimestamp;
-    use Std::Signer;
-    use Std::Vector;
-
+    
     /// Initializes the Diem framework.
     fun initialize(
         root_account: signer,
