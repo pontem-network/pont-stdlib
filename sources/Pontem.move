@@ -45,8 +45,6 @@ module PontemFramework::Pontem {
         amount: u64,
         /// ASCII encoded symbol for the coin type (e.g., "PONT")
         currency_code: vector<u8>,
-        /// Address with the `PreburnQueue` resource that stored the now-burned funds
-        preburn_address: address,
     }
 
      /// The `MintCapability` resource defines a capability to allow minting
@@ -215,13 +213,8 @@ module PontemFramework::Pontem {
         aborts_if coin.value > 0 with Errors::INVALID_ARGUMENT;
     }
 
-    /// TODO: burn.
-
-    /// Mint a new `Pontem` coin of `CoinType` currency worth `value`. The
-    /// caller must have a reference to a `MintCapability<CoinType>`. Only
-    /// the treasury compliance account or the `0x1::PONT` module can acquire such a
-    /// reference.
-    public fun mint_with_capability<CoinType>(
+    /// Mint new coins.
+    public fun mint<CoinType>(
         value: u64,
         _capability: &MintCapability<CoinType>
     ): Pontem<CoinType> acquires CurrencyInfo {
@@ -282,6 +275,35 @@ module PontemFramework::Pontem {
         emits msg to handle if !currency_info.is_synthetic;
     }
 
+    /// Burn coins.
+    public fun burn<CoinType> (
+        to_burn: &mut Pontem<CoinType>,
+        _capability: &BurnCapability<CoinType>,
+    ) acquires CurrencyInfo {
+        assert_is_currency<CoinType>();
+
+        let deployer = get_deployer<CoinType>();
+        let currency_code = currency_code<CoinType>();
+
+        // Destroying coins.
+        let Pontem { value } = withdraw_all<CoinType>(to_burn);
+        
+        let info = borrow_global_mut<CurrencyInfo<CoinType>>(deployer);
+
+        assert(info.total_value >= (value as u128), Errors::limit_exceeded(ECURRENCY_INFO));
+        info.total_value = info.total_value - (value as u128);
+
+        Event::emit_event(
+            &mut info.burn_events,
+            BurnEvent {
+                amount: value,
+                currency_code,
+            }
+        );
+    }
+
+
+    /// Register native currency.
     public fun register_native_currency<CoinType: store>(
         root_account: &signer,
         decimals: u8,
