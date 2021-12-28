@@ -4,6 +4,8 @@ module PontemFramework::Genesis {
     use PontemFramework::PontTimestamp;
     use PontemFramework::PontBlock;
     use PontemFramework::ChainId;
+    use PontemFramework::PONT;
+    use PontemFramework::KSM;
 
     /// Initializes the Pontem framework.
     fun initialize(
@@ -22,8 +24,14 @@ module PontemFramework::Genesis {
         chain_id: u8,
     ) {
         PontBlock::initialize_block_metadata(root_account);
-        PontTimestamp::set_time_has_started(root_account);
+
+        // Currencies setup.
+        PONT::initialize(root_account);
+        KSM::initialize(root_account);
+
         ChainId::initialize(root_account, chain_id);
+
+        PontTimestamp::set_time_has_started(root_account);
     }
 
     /// For verification of genesis, the goal is to prove that all the invariants which
