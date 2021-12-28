@@ -215,6 +215,73 @@ module PontemFramework::Pontem {
         aborts_if coin.value > 0 with Errors::INVALID_ARGUMENT;
     }
 
+    /// TODO: burn.
+
+    /// Mint a new `Pontem` coin of `CoinType` currency worth `value`. The
+    /// caller must have a reference to a `MintCapability<CoinType>`. Only
+    /// the treasury compliance account or the `0x1::PONT` module can acquire such a
+    /// reference.
+    public fun mint_with_capability<CoinType>(
+        value: u64,
+        _capability: &MintCapability<CoinType>
+    ): Pontem<CoinType> acquires CurrencyInfo {
+        assert_is_currency<CoinType>();
+        let currency_code = currency_code<CoinType>();
+
+        let deployer = get_deployer<CoinType>();
+
+        // update market cap resource to reflect minting
+        let info = borrow_global_mut<CurrencyInfo<CoinType>>(deployer);
+
+        assert(info.can_mint, Errors::invalid_state(EMINTING_NOT_ALLOWED));
+        assert(MAX_U128 - info.total_value >= (value as u128), Errors::limit_exceeded(ECURRENCY_INFO));
+        
+        info.total_value = info.total_value + (value as u128);
+
+        Event::emit_event(
+            &mut info.mint_events,
+            MintEvent{
+                amount: value,
+                currency_code,
+            }
+        );
+
+        Pontem<CoinType> { value }
+    }
+    spec mint_with_capability {
+        pragma opaque;
+        modifies global<CurrencyInfo<CoinType>>(get_deployer<CoinType>());
+        ensures exists<CurrencyInfo<CoinType>>(get_deployer<CoinType>());
+        include MintAbortsIf<CoinType>;
+        include MintEnsures<CoinType>;
+        include MintEmits<CoinType>;
+    }
+    spec schema MintAbortsIf<CoinType> {
+        value: u64;
+        include AbortsIfNoCurrency<CoinType>;
+        aborts_if !spec_currency_info<CoinType>().can_mint with Errors::INVALID_STATE;
+        aborts_if spec_currency_info<CoinType>().total_value + value > max_u128() with Errors::LIMIT_EXCEEDED;
+    }
+    spec schema MintEnsures<CoinType> {
+        value: u64;
+        result: Diem<CoinType>;
+        let currency_info = global<CurrencyInfo<CoinType>>(get_deployer<CoinType>());
+        let post post_currency_info = global<CurrencyInfo<CoinType>>(get_deployer<CoinType>());
+        ensures exists<CurrencyInfo<CoinType>>(get_deployer<CoinType>());
+        ensures post_currency_info == update_field(currency_info, total_value, currency_info.total_value + value);
+        ensures result.value == value;
+    }
+    spec schema MintEmits<CoinType> {
+        value: u64;
+        let currency_info = global<CurrencyInfo<CoinType>>(get_deployer<CoinType>());
+        let handle = currency_info.mint_events;
+        let msg = MintEvent{
+            amount: value,
+            currency_code: currency_info.currency_code,
+        };
+        emits msg to handle if !currency_info.is_synthetic;
+    }
+
     public fun register_native_currency<CoinType: store>(
         root_account: &signer,
         decimals: u8,
@@ -280,6 +347,7 @@ module PontemFramework::Pontem {
         global<CurrencyInfo<CoinType>>(get_deployer<CoinType>()).total_value
     }
 
+    /// Get deployer of token.
     fun get_deployer<CoinType>(): address {
         let (deployer, _, _) = Reflect::type_of<CoinType>();
         deployer
