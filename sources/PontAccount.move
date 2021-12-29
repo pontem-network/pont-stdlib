@@ -84,8 +84,8 @@ module PontemFramework::PontAccount {
         });
     }
 
-    /// Record a payment of `to_deposit` from `payer` to `payee` with the attached `metadata`
-    fun deposit<Token>(
+    /// Deposit `Pontem<Token>` to payee account.
+    public fun deposit<Token>(
         payer: &signer,
         payee: address,
         to_deposit: Pontem<Token>,
@@ -210,8 +210,22 @@ module PontemFramework::PontAccount {
         ensures result.value == amount;
     }
 
-    /// Withdraw `amount` `Diem<Token>`'s from the account balance under
-    /// `cap.account_address`
+    /// Withdraw `amount` `Pontem<Token>`'s from the account balance and return.
+    public fun withdraw<Token>(
+        payer: &signer,
+        amount: u64,
+    ): Pontem<Token> acquires Balance {
+        PontTimestamp::assert_operating();
+
+        let payer_address = Signer::address_of(payer);
+        assert(exists<Balance<Token>>(payer_address), Errors::not_published(EPAYER_DOESNT_HOLD_CURRENCY));
+
+        let account_balance = borrow_global_mut<Balance<Token>>(payer_address);   
+
+        withdraw_from_balance<Token>(account_balance, amount)
+    }
+
+    /// Withdraw `amount` `Pontem<Token>`'s from the account balance.
     fun withdraw_from<Token>(
         payer: &signer,
         payee: address,
