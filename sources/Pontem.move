@@ -90,20 +90,18 @@ module PontemFramework::Pontem {
     /// Maximum u128 value.
     const MAX_U128: u128 = 340282366920938463463374607431768211455;
 
-    /// A `BurnCapability` resource is in an unexpected state.
-    const EBURN_CAPABILITY: u64 = 0;
     /// A property expected of a `CurrencyInfo` resource didn't hold
     const ECURRENCY_INFO: u64 = 1;
     /// Minting is not allowed for the specified currency
-    const EMINTING_NOT_ALLOWED: u64 = 5;
+    const EMINTING_NOT_ALLOWED: u64 = 2;
     /// A property expected of the coin provided didn't hold
-    const ECOIN: u64 = 7;
+    const ECOIN: u64 = 3;
     /// The destruction of a non-zero coin was attempted. Non-zero coins must be burned.
-    const EDESTRUCTION_OF_NONZERO_COIN: u64 = 8;
-    /// A property expected of `MintCapability` didn't hold
-    const EMINT_CAPABILITY: u64 = 9;
+    const EDESTRUCTION_OF_NONZERO_COIN: u64 = 4;
     /// A withdrawal greater than the value of the coin was attempted.
-    const EAMOUNT_EXCEEDS_COIN_VALUE: u64 = 10;
+    const EAMOUNT_EXCEEDS_COIN_VALUE: u64 = 5;
+    /// When currency registered not from deployer.
+    const EWRONG_DEPLOYER: u64 = 6;
 
     /// Create a new `Pontem<CoinType>` with a value of `0`. Anyone can call
     /// this and it will be successful as long as `CoinType` is a registered currency.
@@ -328,7 +326,7 @@ module PontemFramework::Pontem {
     {
         // assert it's called by token module deployer.
         let (deployer, _, _) = Reflect::type_of<CoinType>();
-        assert(Signer::address_of(account) == deployer, Errors::custom(101)); // Wrong deployer.
+        assert(Signer::address_of(account) == deployer, Errors::custom(EWRONG_DEPLOYER));
 
         assert(
             !exists<CurrencyInfo<CoinType>>(Signer::address_of(account)),
