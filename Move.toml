@@ -1,5 +1,5 @@
 [package]
-name = "pont-stdlib"
+name = "PontStdlib"
 version = "0.0.1"
 authors = []
 dialect = "Pont"
