@@ -4,14 +4,16 @@ module PontemFramework::KSM {
     use PontemFramework::Pontem;
     use PontemFramework::PontTimestamp;
 
+    /// The resource to use if you want to work with KSM balances.
     struct KSM has key, store {}
 
+    /// Just drop mint and burn capabilities by storing in inaccessible resource forever.
     struct Drop has key {
         mint_cap: Pontem::MintCapability<KSM>,
         burn_cap: Pontem::BurnCapability<KSM>,
     }
 
-    /// Registers the `KSM` cointype. This can only be called from genesis.
+    /// Registers the `KSM` token as native currency. This can only be called from genesis.
     public fun initialize(
         root_account: &signer,
     ) {
