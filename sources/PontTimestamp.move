@@ -2,7 +2,7 @@
 /// It interacts with the other modules in the following ways:
 ///
 /// * To initialize the timestamp from genesis.
-/// * To check if the current state is in the genesis state
+/// * To check if the current state is in the genesis state.
 ///
 /// This module moreover enables code to assert that it is running in genesis (`Self::assert_genesis`) or after
 /// genesis (`Self::assert_operating`). These are essentially distinct states of the system. Specifically,
@@ -26,8 +26,6 @@ module PontemFramework::PontTimestamp {
     const ENOT_GENESIS: u64 = 0;
     /// The blockchain is not in an operating state yet
     const ENOT_OPERATING: u64 = 1;
-    /// An invalid timestamp was provided
-    const ETIMESTAMP: u64 = 2;
 
     /// Marks that time has started and genesis has finished. This can only be called from genesis and with the root
     /// account.
