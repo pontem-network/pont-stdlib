@@ -1,6 +1,5 @@
 /// The chain id distinguishes between different chains (e.g., testnet and the main Pontem network).
-/// One important role is to prevent transactions intended for one chain from being executed on another.
-/// This code provides a container for storing a chain id and functions to initialize and get it.
+/// Allows to get chain id in a smart contract.
 module PontemFramework::ChainId {
     use PontemFramework::CoreAddresses;
     use PontemFramework::PontTimestamp;
