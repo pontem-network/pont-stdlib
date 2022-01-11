@@ -24,12 +24,11 @@ module PontemFramework::Genesis {
         chain_id: u8,
     ) {
         PontBlock::initialize_block_metadata(root_account);
+        ChainId::initialize(root_account, chain_id);
 
         // Currencies setup.
         PONT::initialize(root_account);
         KSM::initialize(root_account);
-
-        ChainId::initialize(root_account, chain_id);
 
         PontTimestamp::set_time_has_started(root_account);
     }
