@@ -1,0 +1,414 @@
+/// The `Token` module describes the concept of a token in the Pontem framework. It introduces the
+/// resource `Token::Token<TokenType>`, representing a token of given type.
+/// The module defines functions operating on tokens as well as functionality like
+/// minting and burning of tokens.
+module PontemFramework::Token {
+    use PontemFramework::CoreAddresses;
+    use PontemFramework::NativeToken;
+    use Std::Errors;
+    use Std::Event::{Self, EventHandle};
+    use Std::Signer;
+    use Std::Reflect;
+
+    /// The `Token` resource defines the token in the Pontem ecosystem.
+    /// Each "token" is coupled with a type `TokenType` specifying the
+    /// token type, and a `value` field specifying the value of the token.
+    struct Token<phantom TokenType> has store {
+        /// The value of this token in the base units for `TokenType`
+        value: u64
+    }
+
+    /// A `MintEvent` is emitted every time a Token is minted. This
+    /// contains the `amount` minted (in base units of the token being
+    /// minted) along with the `symbol` for the token(s) being
+    /// minted, and that is defined in the `symbol` field of the `TokenInfo` 
+    /// resource for the token.
+    struct MintEvent has drop, store {
+        /// Funds added to the system
+        amount: u64,
+        /// Symbol, e.g. "PONT".
+        symbol: vector<u8>,
+    }
+
+    /// A `BurnEvent` is emitted every time Token is burned.
+    /// It contains the `amount` burned in base units for the
+    /// token, along with the `symbol` for the tokens being burned.
+    struct BurnEvent has drop, store {
+        /// Funds removed from the system
+        amount: u64,
+        /// Symbol, e.g. "PONT".
+        symbol: vector<u8>,
+    }
+
+    /// The `MintCapability` resource defines a capability to allow minting
+    /// of token of `TokenType` by the holder of this capability.
+    /// This capability should be held by minter of the token or can be dropped.
+    struct MintCapability<phantom TokenType> has key, store {}
+
+    /// The `BurnCapability` resource defines a capability to allow tokens
+    /// of `TokenType` token to be burned by the holder of it.
+    /// This capability should be held by minter of the token or can be dropped.
+    /// The token deployer can create additional functions in his token module to allow users to burn their tokens.
+    struct BurnCapability<phantom TokenType> has key, store {}
+
+    /// The `TokenInfo<TokenType>` resource stores the various
+    /// pieces of information needed for a token (`TokenType`) that is
+    /// registered on-chain. This resource _must_ be published under the
+    /// address of token module deployer in order for the registration of
+    /// `TokenType` as a recognized token on-chain to be successful. At
+    /// the time of registration, the `MintCapability<TokenType>` and
+    /// `BurnCapability<TokenType>` capabilities are returned to the caller.
+    /// Unless they are specified otherwise the fields in this resource are immutable.
+    struct TokenInfo<phantom TokenType> has key {
+        /// The total value for the token represented by `TokenType`. Mutable.
+        total_value: u128,
+        /// Decimals amount of `TokenType` token.
+        decimals: u8,
+        /// The code symbol for this `TokenType`.
+        /// e.g. for "PONT" this is x"504f4e54". No character limit.
+        symbol: vector<u8>,
+        /// Event stream for minting and where `MintEvent`s will be emitted.
+        mint_events: EventHandle<MintEvent>,
+        /// Event stream for burning, and where `BurnEvent`s will be emitted.
+        burn_events: EventHandle<BurnEvent>,
+    }
+
+    /// Maximum u64 value.
+    const MAX_U64: u64 = 18446744073709551615;
+    /// Maximum u128 value.
+    const MAX_U128: u128 = 340282366920938463463374607431768211455;
+
+    /// A property expected of a `TokenInfo` resource didn't hold
+    const ETOKEN_INFO: u64 = 1;
+    /// A property expected of the token provided didn't hold
+    const ETOKEN: u64 = 2;
+    /// The destruction of a non-zero token was attempted. Non-zero tokens must be burned.
+    const EDESTRUCTION_OF_NONZERO_TOKEN: u64 = 3;
+    /// A withdrawal greater than the value of the token was attempted.
+    const EAMOUNT_EXCEEDS_TOKEN_VALUE: u64 = 4;
+    /// When token registered not from deployer.
+    const EWRONG_DEPLOYER: u64 = 5;
+
+    /// Create a new `Token<TokenType>` with a value of `0`. Anyone can call
+    /// this and it will be successful as long as `TokenType` is a registered token.
+    public fun zero<TokenType>(): Token<TokenType> {
+        assert_is_token<TokenType>();
+        Token<TokenType> { value: 0 }
+    }
+
+    /// Returns the `value` of the passed in `token`. The value is
+    /// represented in the base units for the token represented by
+    /// `TokenType`.
+    public fun value<TokenType>(token: &Token<TokenType>): u64 {
+        token.value
+    }
+
+    /// Removes `amount` of value from the passed in `token`. Returns the
+    /// remaining balance of the passed in `token`, along with another token
+    /// with value equal to `amount`. Calls will fail if `amount > Token::value(&token)`.
+    public fun split<TokenType>(token: Token<TokenType>, amount: u64): (Token<TokenType>, Token<TokenType>) {
+        let other = withdraw(&mut token, amount);
+        (token, other)
+    }
+    spec split {
+        aborts_if token.value < amount with Errors::LIMIT_EXCEEDED;
+        ensures result_1.value == token.value - amount;
+        ensures result_2.value == amount;
+    }
+
+    /// Withdraw `amount` from the passed-in `token`, where the original token is modified in place.
+    /// After this function is executed, the original `token` will have
+    /// `value = original_value - amount`, and the new token will have a `value = amount`.
+    /// Calls will abort if the passed-in `amount` is greater than the
+    /// value of the passed-in `token`.
+    public fun withdraw<TokenType>(token: &mut Token<TokenType>, amount: u64): Token<TokenType> {
+        // Check that `amount` is less than the token's value
+        assert(token.value >= amount, Errors::limit_exceeded(EAMOUNT_EXCEEDS_TOKEN_VALUE));
+        token.value = token.value - amount;
+        Token { value: amount }
+    }
+    spec withdraw {
+        pragma opaque;
+        include WithdrawAbortsIf<TokenType>;
+        ensures token.value == old(token.value) - amount;
+        ensures result.value == amount;
+    }
+    spec schema WithdrawAbortsIf<TokenType> {
+        token: Token<TokenType>;
+        amount: u64;
+        aborts_if token.value < amount with Errors::LIMIT_EXCEEDED;
+    }
+
+    /// Return a `Token<TokenType>` worth `token.value` and reduces the `value` of the input `token` to
+    /// zero. Does not abort.
+    public fun withdraw_all<TokenType>(token: &mut Token<TokenType>): Token<TokenType> {
+        let val = token.value;
+        withdraw(token, val)
+    }
+    spec withdraw_all {
+        pragma opaque;
+        aborts_if false;
+        ensures result.value == old(token.value);
+        ensures token.value == 0;
+    }
+
+    /// Takes two tokens as input, returns a single token with the total value of both tokens.
+    /// Destroys on of the input tokens.
+    public fun join<TokenType>(token1: Token<TokenType>, token2: Token<TokenType>): Token<TokenType>  {
+        deposit(&mut token1, token2);
+        token1
+    }
+    spec join {
+        pragma opaque;
+        aborts_if token1.value + token2.value > max_u64() with Errors::LIMIT_EXCEEDED;
+        ensures result.value == token1.value + token2.value;
+    }
+
+    /// "Merges" the two tokens.
+    /// The token passed in by reference will have a value equal to the sum of the two tokens
+    /// The `check` tokens is consumed in the process
+    public fun deposit<TokenType>(token: &mut Token<TokenType>, check: Token<TokenType>) {
+        let Token { value } = check;
+        assert(MAX_U64 - token.value >= value, Errors::limit_exceeded(ETOKEN));
+        token.value = token.value + value;
+    }
+    spec deposit {
+        pragma opaque;
+        include DepositAbortsIf<TokenType>;
+        ensures token.value == old(token.value) + check.value;
+    }
+    spec schema DepositAbortsIf<TokenType> {
+        token: Token<TokenType>;
+        check: Token<TokenType>;
+        aborts_if token.value + check.value > MAX_U64 with Errors::LIMIT_EXCEEDED;
+    }
+
+    /// Destroy a zero-value token. Calls will fail if the `value` in the passed-in `token` is non-zero
+    /// so it is impossible to "burn" any non-zero amount of `Pontem` without having
+    /// a `BurnCapability` for the specific `TokenType`.
+    public fun destroy_zero<TokenType>(token: Token<TokenType>) {
+        let Token { value } = token;
+        assert(value == 0, Errors::invalid_argument(EDESTRUCTION_OF_NONZERO_TOKEN))
+    }
+    spec destroy_zero {
+        pragma opaque;
+        aborts_if token.value > 0 with Errors::INVALID_ARGUMENT;
+    }
+
+    /// Mint new tokens of `TokenType`.
+    /// The function requires `MintCapability`, returns created tokens `Token<TokenType>`.
+    public fun mint<TokenType>(
+        value: u64,
+        _capability: &MintCapability<TokenType>
+    ): Token<TokenType> acquires TokenInfo {
+        assert_is_token<TokenType>();
+
+        let symbol = symbol<TokenType>();
+        let deployer = get_deployer<TokenType>();
+
+        // update market cap resource to reflect minting
+        let info = borrow_global_mut<TokenInfo<TokenType>>(deployer);
+
+        assert(MAX_U128 - info.total_value >= (value as u128), Errors::limit_exceeded(ETOKEN_INFO));
+        
+        info.total_value = info.total_value + (value as u128);
+
+        Event::emit_event(
+            &mut info.mint_events,
+            MintEvent{
+                amount: value,
+                symbol,
+            }
+        );
+
+        Token<TokenType> { value }
+    }
+    spec mint_with_capability {
+        pragma opaque;
+        modifies global<TokenInfo<TokenType>>(get_deployer<TokenType>());
+        ensures exists<TokenInfo<TokenType>>(get_deployer<TokenType>());
+        include MintAbortsIf<TokenType>;
+        include MintEnsures<TokenType>;
+        include MintEmits<TokenType>;
+    }
+    spec schema MintAbortsIf<TokenType> {
+        value: u64;
+        include AbortsIfNoToken<TokenType>;
+        aborts_if spec_token_info<TokenType>().total_value + value > max_u128() with Errors::LIMIT_EXCEEDED;
+    }
+    spec schema MintEnsures<TokenType> {
+        value: u64;
+        result: Token<TokenType>;
+        let info = global<TokenInfo<TokenType>>(get_deployer<TokenType>());
+        let post post_info = global<TokenInfo<TokenType>>(get_deployer<TokenType>());
+        ensures exists<TokenInfo<TokenType>>(get_deployer<TokenType>());
+        ensures post_info == update_field(info, total_value, info.total_value + value);
+        ensures result.value == value;
+    }
+    spec schema MintEmits<TokenType> {
+        value: u64;
+        let info = global<TokenInfo<TokenType>>(get_deployer<TokenType>());
+        let handle = info.mint_events;
+        let msg = MintEvent{
+            amount: value,
+            symbol: info.symbol,
+        };
+        emits msg to handle if !info.is_synthetic;
+    }
+
+    /// Burn `to_burn` tokens.
+    /// The function requires `BurnCapability`.
+    public fun burn<TokenType> (
+        to_burn: &mut Token<TokenType>,
+        _capability: &BurnCapability<TokenType>,
+    ) acquires TokenInfo {
+        assert_is_token<TokenType>();
+
+        let deployer = get_deployer<TokenType>();
+        let symbol = symbol<TokenType>();
+
+        // Destroying tokens.
+        let Token { value } = withdraw_all<TokenType>(to_burn);
+        
+        let info = borrow_global_mut<TokenInfo<TokenType>>(deployer);
+
+        assert(info.total_value >= (value as u128), Errors::limit_exceeded(ETOKEN_INFO));
+        info.total_value = info.total_value - (value as u128);
+
+        Event::emit_event(
+            &mut info.burn_events,
+            BurnEvent {
+                amount: value,
+                symbol,
+            }
+        );
+    }
+
+    /// Register native token.
+    /// Only `@Root` can call it.
+    /// The `native_key` used by Pontem node to match VM tokens and native ones.
+    public fun register_native_token<TokenType: store>(
+        root_account: &signer,
+        decimals: u8,
+        symbol: vector<u8>,
+        native_key: vector<u8>
+    ): (MintCapability<TokenType>, BurnCapability<TokenType>) {
+        CoreAddresses::assert_root(root_account);
+        NativeToken::register_token<TokenType>(root_account, native_key);
+
+        register_token<TokenType>(
+            root_account,
+            decimals,
+            symbol
+        )
+    }
+
+    /// Register new token. 
+    /// Should be called the deployer of module contains `TokenType`.
+    /// Registering new token.
+    public fun register_token<TokenType>(
+        account: &signer,
+        decimals: u8,
+        symbol: vector<u8>,
+    ): (MintCapability<TokenType>, BurnCapability<TokenType>)
+    {
+        // check it's called from module deployer.
+        let (deployer, _, _) = Reflect::type_of<TokenType>();
+        assert(Signer::address_of(account) == deployer, Errors::custom(EWRONG_DEPLOYER));
+
+        assert(
+            !exists<TokenInfo<TokenType>>(Signer::address_of(account)),
+            Errors::already_published(ETOKEN_INFO)
+        );
+
+        move_to(account, TokenInfo<TokenType> {
+            total_value: 0,
+            decimals,
+            symbol,
+            mint_events: Event::new_event_handle<MintEvent>(account),
+            burn_events: Event::new_event_handle<BurnEvent>(account),
+        });
+        (MintCapability<TokenType>{}, BurnCapability<TokenType>{})
+    }
+    spec register_token {
+        include RegisterTokenAbortsIf<TokenType>;
+        include RegisterTokenEnsures<TokenType>;
+    }
+    spec schema RegisterTokenAbortsIf<TokenType> {
+        account: signer;
+        symbol: vector<u8>;
+        decimals: u8;
+
+        aborts_if exists<TokenInfo<TokenType>>(Signer::address_of(account))
+            with Errors::ALREADY_PUBLISHED;
+    }
+
+    /// Returns the total amount of token minted of type `TokenType`.
+    public fun total_value<TokenType>(): u128
+    acquires TokenInfo {
+        assert_is_token<TokenType>();
+        borrow_global<TokenInfo<TokenType>>(get_deployer<TokenType>()).total_value
+    }
+    /// Returns the market cap of `TokenType`.
+    spec fun spec_total_value<TokenType>(): u128 {
+        global<TokenInfo<TokenType>>(get_deployer<TokenType>()).total_value
+    }
+
+    /// Get deployer of token.
+    fun get_deployer<TokenType>(): address {
+        let (deployer, _, _) = Reflect::type_of<TokenType>();
+        deployer
+    }
+
+    /// Returns `true` if the type `TokenType` is a registered token.
+    /// Returns `false` otherwise.
+    public fun is_token<TokenType>(): bool {
+        let deployer = get_deployer<TokenType>();
+        exists<TokenInfo<TokenType>>(deployer)
+    }
+
+    /// Returns the decimals for the `TokenType` token as defined
+    /// in its `TokenInfo`.
+    public fun decimals<TokenType>(): u8
+    acquires TokenInfo {
+        let deployer = get_deployer<TokenType>();
+        assert_is_token<TokenType>();
+        borrow_global<TokenInfo<TokenType>>(deployer).decimals
+    }
+    spec fun spec_decimals<TokenType>(): u8 {
+        global<TokenInfo<TokenType>>(get_deployer<TokenType>()).decimals
+    }
+
+    /// Returns the token code for the registered token as defined in
+    /// its `TokenInfo` resource.
+    public fun symbol<TokenType>(): vector<u8>
+    acquires TokenInfo {
+        let deployer = get_deployer<TokenType>();
+        assert_is_token<TokenType>();
+        *&borrow_global<TokenInfo<TokenType>>(deployer).symbol
+    }
+    spec symbol {
+        pragma opaque;
+        include AbortsIfNoToken<TokenType>;
+        ensures result == spec_symbol<TokenType>();
+    }
+    spec fun spec_symbol<TokenType>(): vector<u8> {
+        spec_token_info<TokenType>().symbol
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Helper functions
+    ///////////////////////////////////////////////////////////////////////////
+
+    /// Asserts that `TokenType` is a registered token.
+    public fun assert_is_token<TokenType>() {
+        assert(is_token<TokenType>(), Errors::not_published(ETOKEN_INFO));
+    }
+    spec assert_is_token {
+        pragma opaque;
+        include AbortsIfNoToken<TokenType>;
+    }
+    spec schema AbortsIfNoToken<TokenType> {
+        aborts_if !spec_is_token<TokenInfo>() with Errors::NOT_PUBLISHED;
+    }
+}
