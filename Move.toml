@@ -9,6 +9,5 @@ Std = "0x1"
 PontemFramework = "0x1"
 Root = "0xA550C18"
 
-[dependencies.MoveStdlib]
-git = "https://github.com/pontem-network/move-stdlib.git"
-rev = "main"
+[dependencies]
+MoveStdlib = { git = "https://github.com/pontem-network/move-stdlib.git", rev = "main"}
