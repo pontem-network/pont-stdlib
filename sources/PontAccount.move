@@ -1,6 +1,6 @@
 module PontemFramework::PontAccount {
     use PontemFramework::PontTimestamp;
-    use PontemFramework::Pontem::{Self, Pontem};
+    use PontemFramework::Token::{Self, Token};
     use Std::Event::{Self, EventHandle};
     use Std::Errors;
     use Std::Signer;
@@ -14,21 +14,21 @@ module PontemFramework::PontAccount {
         sent_events: EventHandle<SentPaymentEvent>,
     }
 
-    /// A resource that holds the total value of currency of type `Token`
+    /// A resource that holds the total value of currency of type `TokenType`
     /// currently held by the account.
-    struct Balance<phantom Token> has key {
+    struct Balance<phantom TokenType> has key {
         /// Stores the value of the balance in its balance field. A coin has
         /// a `value` field. The amount of money in the balance is changed
         /// by modifying this field.
-        coin: Pontem<Token>,
+        coin: Token<TokenType>,
     }
 
     /// Message for sent events
     struct SentPaymentEvent has drop, store {
-        /// The amount of Pontem<Token> sent
+        /// The amount of Token<TokenType> sent
         amount: u64,
-        /// The code symbol for the currency that was sent
-        currency_code: vector<u8>,
+        /// The code symbol for the token that was sent
+        symbol: vector<u8>,
         /// The address that was paid
         payee: address,
         /// Metadata associated with the payment
@@ -37,10 +37,10 @@ module PontemFramework::PontAccount {
 
     /// Message for received events
     struct ReceivedPaymentEvent has drop, store {
-        /// The amount of Pontem<Token> received
+        /// The amount of Token<TokenType> received
         amount: u64,
         /// The code symbol for the currency that was received
-        currency_code: vector<u8>,
+        symbol: vector<u8>,
         /// The address that sent the coin
         payer: address,
         /// Metadata associated with the payment
@@ -85,16 +85,16 @@ module PontemFramework::PontAccount {
     }
 
     /// Deposit `Pontem<Token>` to payee account.
-    public fun deposit<Token>(
+    public fun deposit<TokenType>(
         payer: &signer,
         payee: address,
-        to_deposit: Pontem<Token>,
+        to_deposit: Token<TokenType>,
         metadata: vector<u8>,
     ) acquires PontAccount, Balance {
         PontTimestamp::assert_operating();
 
         // Check that the `to_deposit` coin is non-zero
-        let deposit_value = Pontem::value(&to_deposit);
+        let deposit_value = Token::value(&to_deposit);
         assert(deposit_value > 0, Errors::invalid_argument(ECOIN_DEPOSIT_IS_ZERO));
 
         // Create signer for payee.
@@ -105,19 +105,19 @@ module PontemFramework::PontAccount {
             create_account(&payee_account);
         };
 
-        if (!balance_exists<Token>(payee)) {
-            add_currency<Token>(&payee_account);
+        if (!balance_exists<TokenType>(payee)) {
+            add_currency<TokenType>(&payee_account);
         };
 
         // Deposit the `to_deposit` coin
-        Pontem::deposit(&mut borrow_global_mut<Balance<Token>>(payee).coin, to_deposit);
+        Token::deposit(&mut borrow_global_mut<Balance<TokenType>>(payee).coin, to_deposit);
 
         // Log a received event
         Event::emit_event<ReceivedPaymentEvent>(
             &mut borrow_global_mut<PontAccount>(payee).received_events,
             ReceivedPaymentEvent {
                 amount: deposit_value,
-                currency_code: Pontem::currency_code<Token>(),
+                symbol: Token::symbol<TokenType>(),
                 payer: Signer::address_of(payer),
                 metadata
             }
@@ -153,7 +153,7 @@ module PontemFramework::PontAccount {
         metadata: vector<u8>;
         include PontTimestamp::AbortsIfNotOperating;
         aborts_if amount == 0 with Errors::INVALID_ARGUMENT;
-        include Pontem::AbortsIfNoCurrency<Token>;
+        include Token::AbortsIfNoToken<Token>;
     }
     spec schema DepositEnsures<Token> {
         payee: address;
@@ -178,7 +178,7 @@ module PontemFramework::PontAccount {
         let handle = global<PontAccount>(payee).received_events;
         let msg = ReceivedPaymentEvent {
             amount,
-            currency_code: Pontem::spec_currency_code<Token>(),
+            currency_code: Token::spec_currency_code<Token>(),
             payer,
             metadata
         };
@@ -186,17 +186,17 @@ module PontemFramework::PontAccount {
     }
 
     /// Helper to withdraw `amount` from the given account balance and return the withdrawn Diem<Token>
-    fun withdraw_from_balance<Token>(
-        balance: &mut Balance<Token>,
+    fun withdraw_from_balance<TokenType>(
+        balance: &mut Balance<TokenType>,
         amount: u64
-    ): Pontem<Token> {
+    ): Token<TokenType> {
         PontTimestamp::assert_operating();
 
         let coin = &mut balance.coin;
 
         // Abort if this withdrawal would make the `payer`'s balance go negative
-        assert(Pontem::value(coin) >= amount, Errors::limit_exceeded(EINSUFFICIENT_BALANCE));
-        Pontem::withdraw(coin, amount)
+        assert(Token::value(coin) >= amount, Errors::limit_exceeded(EINSUFFICIENT_BALANCE));
+        Token::withdraw(coin, amount)
     }
     spec withdraw_from_balance {
         include WithdrawFromBalanceAbortsIf<Token>;
@@ -211,27 +211,27 @@ module PontemFramework::PontAccount {
     }
 
     /// Withdraw `amount` `Pontem<Token>`'s from the account balance and return.
-    public fun withdraw<Token>(
+    public fun withdraw<TokenType>(
         payer: &signer,
         amount: u64,
-    ): Pontem<Token> acquires Balance {
+    ): Token<TokenType> acquires Balance {
         PontTimestamp::assert_operating();
 
         let payer_address = Signer::address_of(payer);
-        assert(exists<Balance<Token>>(payer_address), Errors::not_published(EPAYER_DOESNT_HOLD_CURRENCY));
+        assert(exists<Balance<TokenType>>(payer_address), Errors::not_published(EPAYER_DOESNT_HOLD_CURRENCY));
 
-        let account_balance = borrow_global_mut<Balance<Token>>(payer_address);   
+        let account_balance = borrow_global_mut<Balance<TokenType>>(payer_address);   
 
-        withdraw_from_balance<Token>(account_balance, amount)
+        withdraw_from_balance<TokenType>(account_balance, amount)
     }
 
     /// Withdraw `amount` `Pontem<Token>`'s from the account balance.
-    fun withdraw_from<Token>(
+    fun withdraw_from<TokenType>(
         payer: &signer,
         payee: address,
         amount: u64,
         metadata: vector<u8>,
-    ): Pontem<Token> acquires Balance, PontAccount {
+    ): Token<TokenType> acquires Balance, PontAccount {
         PontTimestamp::assert_operating();
         
         let payer_address = Signer::address_of(payer);
@@ -241,23 +241,23 @@ module PontemFramework::PontAccount {
             create_account(payer);
         };
 
-        if (!balance_exists<Token>(payer_address)) {
-            add_currency<Token>(payer);
+        if (!balance_exists<TokenType>(payer_address)) {
+            add_currency<TokenType>(payer);
         };
 
-        let account_balance = borrow_global_mut<Balance<Token>>(payer_address);
+        let account_balance = borrow_global_mut<Balance<TokenType>>(payer_address);
 
         // Load the payer's account and emit an event to record the withdrawal
         Event::emit_event<SentPaymentEvent>(
             &mut borrow_global_mut<PontAccount>(payer_address).sent_events,
             SentPaymentEvent {
                 amount,
-                currency_code: Pontem::currency_code<Token>(),
+                symbol: Token::symbol<TokenType>(),
                 payee,
                 metadata
             },
         );
-        withdraw_from_balance<Token>(account_balance, amount)
+        withdraw_from_balance<TokenType>(account_balance, amount)
     }
     spec withdraw_from {
         let payer = cap.account_address;
@@ -278,7 +278,7 @@ module PontemFramework::PontAccount {
         payee: address;
         amount: u64;
         include PontTimestamp::AbortsIfNotOperating;
-        include Pontem::AbortsIfNoCurrency<Token>;
+        include Token::AbortsIfNoCurrency<Token>;
         include WithdrawFromBalanceAbortsIf<Token>{payer, balance: global<Balance<Token>>(payer)};
     }
     spec schema WithdrawFromEmits<Token> {
@@ -289,7 +289,7 @@ module PontemFramework::PontAccount {
         let handle = global<PontAccount>(payer).sent_events;
         let msg = SentPaymentEvent {
             amount,
-            currency_code: Pontem::spec_currency_code<Token>(),
+            symbol: Token::spec_symbol<Token>(),
             payee,
             metadata
         };
@@ -373,7 +373,7 @@ module PontemFramework::PontAccount {
 
     /// Helper to return the u64 value of the `balance` for `account`
     fun balance_for<Token>(balance: &Balance<Token>): u64 {
-        Pontem::value<Token>(&balance.coin)
+        Token::value<Token>(&balance.coin)
     }
 
     /// Return the current balance of the account at `addr`.
@@ -390,7 +390,7 @@ module PontemFramework::PontAccount {
         let addr = Signer::address_of(account);
 
         // aborts if `Token` is not a currency type in the system
-        Pontem::assert_is_currency<Token>();
+        Token::assert_is_token<Token>();
         
         // aborts if this account already has a balance in `Token`
         assert(
@@ -398,7 +398,7 @@ module PontemFramework::PontAccount {
             Errors::already_published(EADD_EXISTING_CURRENCY)
         );
 
-        move_to(account, Balance<Token>{ coin: Pontem::zero<Token>() })
+        move_to(account, Balance<Token>{ coin: Token::zero<Token>() })
     }
     spec add_currency {
         /// An account must exist at the address
@@ -409,7 +409,7 @@ module PontemFramework::PontAccount {
     spec schema AddCurrencyAbortsIf<Token> {
         account: signer;
         /// `Currency` must be valid
-        include Pontem::AbortsIfNoCurrency<Token>;
+        include Token::AbortsIfNoCurrency<Token>;
         /// `account` cannot have an existing balance in `Currency`
         aborts_if exists<Balance<Token>>(Signer::address_of(account)) with Errors::ALREADY_PUBLISHED;
     }
