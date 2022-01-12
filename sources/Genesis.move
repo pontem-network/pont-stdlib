@@ -44,9 +44,7 @@ module PontemFramework::Genesis {
     }
 
     #[test_only]
-    public fun setup(root_account: &signer) {
-        initialize_internal(
-            root_account
-        )
+    public fun setup(root_account: &signer, chain_id: u8) {
+        initialize_internal(root_account, chain_id)
     }
 }
