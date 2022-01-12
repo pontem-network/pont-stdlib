@@ -313,7 +313,7 @@ module PontemFramework::Token {
     ): (MintCapability<TokenType>, BurnCapability<TokenType>)
     {
         // check it's called from module deployer.
-        let (deployer, _, _) = Reflect::type_of<TokenType>();
+        let deployer = get_deployer<TokenType>();
         assert(Signer::address_of(account) == deployer, Errors::custom(EWRONG_DEPLOYER));
 
         assert(
@@ -357,6 +357,11 @@ module PontemFramework::Token {
     /// Get deployer of token.
     fun get_deployer<TokenType>(): address {
         let (deployer, _, _) = Reflect::type_of<TokenType>();
+
+        if (deployer == @Std) {
+            return @Root
+        };
+
         deployer
     }
 
