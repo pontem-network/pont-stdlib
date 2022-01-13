@@ -10,7 +10,7 @@ module PontemFramework::PontBlock {
     }
 
     /// The `BlockMetadata` resource is in an invalid state
-    const EBLOCK_METADATA: u64 = 0;
+    const ERR_BLOCK_METADATA: u64 = 0;
 
     /// This can only be invoked by the Association address, and only a single time.
     /// Currently, it is invoked in the genesis transaction.
@@ -19,7 +19,7 @@ module PontemFramework::PontBlock {
         // Operational constraint, only callable by the Root address
         CoreAddresses::assert_root(root_account);
 
-        assert(!is_initialized(), Errors::already_published(EBLOCK_METADATA));
+        assert(!is_initialized(), Errors::already_published(ERR_BLOCK_METADATA));
         move_to<BlockMetadata>(
             root_account,
             BlockMetadata {
@@ -42,7 +42,7 @@ module PontemFramework::PontBlock {
 
     /// Get the current block height
     public fun get_current_block_height(): u64 acquires BlockMetadata {
-        assert(is_initialized(), Errors::not_published(EBLOCK_METADATA));
+        assert(is_initialized(), Errors::not_published(ERR_BLOCK_METADATA));
         borrow_global<BlockMetadata>(@Root).height
     }
 

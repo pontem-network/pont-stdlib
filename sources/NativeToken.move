@@ -7,7 +7,7 @@ module PontemFramework::NativeToken {
     friend PontemFramework::Token;
 
     /// When native token already published
-    const ENATIVE_TOKEN: u64 = 0;
+    const ERR_NATIVE_TOKEN: u64 = 0;
 
     /// The resource to store access path for `TokenType` native token
     struct NativeToken<phantom TokenType> has key, store {
@@ -18,8 +18,8 @@ module PontemFramework::NativeToken {
     public(friend) fun register_token<TokenType>(account: &signer, access_path: vector<u8>) {
         assert(
             !exists<NativeToken<TokenType>>(Signer::address_of(account)),
-            Errors::already_published(ENATIVE_TOKEN)
+            Errors::already_published(ERR_NATIVE_TOKEN)
         );
-        move_to(account, NativeToken<TokenType> { access_path: access_path })
+        move_to(account, NativeToken<TokenType> { access_path })
     }
 }

@@ -4,11 +4,13 @@ module PontemFramework::CoreAddresses {
     use Std::Signer;
 
     /// The operation can only be performed by the account at 0xA550C18 (Root)
-    const E_ROOT: u64 = 0;
+    const ERR_ROOT: u64 = 0;
 
     /// Assert that the account is the  Root address.
     public fun assert_root(account: &signer) {
-        assert(Signer::address_of(account) == @Root, Errors::requires_address(E_ROOT))
+        assert(
+            Signer::address_of(account) == @Root,
+            Errors::requires_address(ERR_ROOT))
     }
     spec assert_root {
         pragma opaque;
