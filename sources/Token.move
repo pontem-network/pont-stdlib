@@ -9,6 +9,7 @@ module PontemFramework::Token {
     use Std::Event::{Self, EventHandle};
     use Std::Signer;
     use Std::Reflect;
+    use Std::ASCII::String;
 
     /// The `Token` resource defines the token in the Pontem ecosystem.
     /// Each "token" is coupled with a type `TokenType` specifying the
@@ -27,7 +28,7 @@ module PontemFramework::Token {
         /// Funds added to the system
         amount: u64,
         /// Symbol, e.g. "PONT".
-        symbol: vector<u8>,
+        symbol: String,
     }
 
     /// A `BurnEvent` is emitted every time Token is burned.
@@ -37,7 +38,7 @@ module PontemFramework::Token {
         /// Funds removed from the system
         amount: u64,
         /// Symbol, e.g. "PONT".
-        symbol: vector<u8>,
+        symbol: String,
     }
 
     /// The `MintCapability` resource defines a capability to allow minting
@@ -66,7 +67,7 @@ module PontemFramework::Token {
         decimals: u8,
         /// The code symbol for this `TokenType`.
         /// e.g. for "PONT" this is x"504f4e54". No character limit.
-        symbol: vector<u8>,
+        symbol: String,
         /// Event stream for minting and where `MintEvent`s will be emitted.
         mint_events: EventHandle<MintEvent>,
         /// Event stream for burning, and where `BurnEvent`s will be emitted.
@@ -79,15 +80,15 @@ module PontemFramework::Token {
     const MAX_U128: u128 = 340282366920938463463374607431768211455;
 
     /// A property expected of a `TokenInfo` resource didn't hold
-    const ETOKEN_INFO: u64 = 1;
+    const ERR_TOKEN_INFO: u64 = 1;
     /// A property expected of the token provided didn't hold
-    const ETOKEN: u64 = 2;
+    const ERR_TOKEN: u64 = 2;
     /// The destruction of a non-zero token was attempted. Non-zero tokens must be burned.
-    const EDESTRUCTION_OF_NONZERO_TOKEN: u64 = 3;
+    const ERR_DESTRUCTION_OF_NONZERO_TOKEN: u64 = 3;
     /// A withdrawal greater than the value of the token was attempted.
-    const EAMOUNT_EXCEEDS_TOKEN_VALUE: u64 = 4;
+    const ERR_AMOUNT_EXCEEDS_TOKEN_VALUE: u64 = 4;
     /// When token registered not from deployer.
-    const EWRONG_DEPLOYER: u64 = 5;
+    const ERR_WRONG_DEPLOYER: u64 = 5;
 
     /// Create a new `Token<TokenType>` with a value of `0`. Anyone can call
     /// this and it will be successful as long as `TokenType` is a registered token.
@@ -123,7 +124,7 @@ module PontemFramework::Token {
     /// value of the passed-in `token`.
     public fun withdraw<TokenType>(token: &mut Token<TokenType>, amount: u64): Token<TokenType> {
         // Check that `amount` is less than the token's value
-        assert(token.value >= amount, Errors::limit_exceeded(EAMOUNT_EXCEEDS_TOKEN_VALUE));
+        assert(token.value >= amount, Errors::limit_exceeded(ERR_AMOUNT_EXCEEDS_TOKEN_VALUE));
         token.value = token.value - amount;
         Token { value: amount }
     }
@@ -169,7 +170,7 @@ module PontemFramework::Token {
     /// The `check` tokens is consumed in the process
     public fun deposit<TokenType>(token: &mut Token<TokenType>, check: Token<TokenType>) {
         let Token { value } = check;
-        assert(MAX_U64 - token.value >= value, Errors::limit_exceeded(ETOKEN));
+        assert(MAX_U64 - token.value >= value, Errors::limit_exceeded(ERR_TOKEN));
         token.value = token.value + value;
     }
     spec deposit {
@@ -188,7 +189,7 @@ module PontemFramework::Token {
     /// a `BurnCapability` for the specific `TokenType`.
     public fun destroy_zero<TokenType>(token: Token<TokenType>) {
         let Token { value } = token;
-        assert(value == 0, Errors::invalid_argument(EDESTRUCTION_OF_NONZERO_TOKEN))
+        assert(value == 0, Errors::invalid_argument(ERR_DESTRUCTION_OF_NONZERO_TOKEN))
     }
     spec destroy_zero {
         pragma opaque;
@@ -209,7 +210,7 @@ module PontemFramework::Token {
         // update market cap resource to reflect minting
         let info = borrow_global_mut<TokenInfo<TokenType>>(deployer);
 
-        assert(MAX_U128 - info.total_value >= (value as u128), Errors::limit_exceeded(ETOKEN_INFO));
+        assert(MAX_U128 - info.total_value >= (value as u128), Errors::limit_exceeded(ERR_TOKEN_INFO));
         
         info.total_value = info.total_value + (value as u128);
 
@@ -272,7 +273,7 @@ module PontemFramework::Token {
         
         let info = borrow_global_mut<TokenInfo<TokenType>>(deployer);
 
-        assert(info.total_value >= (value as u128), Errors::limit_exceeded(ETOKEN_INFO));
+        assert(info.total_value >= (value as u128), Errors::limit_exceeded(ERR_TOKEN_INFO));
         info.total_value = info.total_value - (value as u128);
 
         Event::emit_event(
@@ -290,7 +291,7 @@ module PontemFramework::Token {
     public fun register_native_token<TokenType: store>(
         root_account: &signer,
         decimals: u8,
-        symbol: vector<u8>,
+        symbol: String,
         native_key: vector<u8>
     ): (MintCapability<TokenType>, BurnCapability<TokenType>) {
         CoreAddresses::assert_root(root_account);
@@ -309,16 +310,16 @@ module PontemFramework::Token {
     public fun register_token<TokenType>(
         account: &signer,
         decimals: u8,
-        symbol: vector<u8>,
+        symbol: String,
     ): (MintCapability<TokenType>, BurnCapability<TokenType>)
     {
         // check it's called from module deployer.
         let deployer = get_deployer<TokenType>();
-        assert(Signer::address_of(account) == deployer, Errors::custom(EWRONG_DEPLOYER));
+        assert(Signer::address_of(account) == deployer, Errors::custom(ERR_WRONG_DEPLOYER));
 
         assert(
             !exists<TokenInfo<TokenType>>(Signer::address_of(account)),
-            Errors::already_published(ETOKEN_INFO)
+            Errors::already_published(ERR_TOKEN_INFO)
         );
 
         move_to(account, TokenInfo<TokenType> {
@@ -336,7 +337,7 @@ module PontemFramework::Token {
     }
     spec schema RegisterTokenAbortsIf<TokenType> {
         account: signer;
-        symbol: vector<u8>;
+        symbol: String;
         decimals: u8;
 
         aborts_if exists<TokenInfo<TokenType>>(Signer::address_of(account))
@@ -376,8 +377,8 @@ module PontemFramework::Token {
     /// in its `TokenInfo`.
     public fun decimals<TokenType>(): u8
     acquires TokenInfo {
-        let deployer = get_deployer<TokenType>();
         assert_is_token<TokenType>();
+        let deployer = get_deployer<TokenType>();
         borrow_global<TokenInfo<TokenType>>(deployer).decimals
     }
     spec fun spec_decimals<TokenType>(): u8 {
@@ -386,10 +387,10 @@ module PontemFramework::Token {
 
     /// Returns the token code for the registered token as defined in
     /// its `TokenInfo` resource.
-    public fun symbol<TokenType>(): vector<u8>
+    public fun symbol<TokenType>(): String
     acquires TokenInfo {
-        let deployer = get_deployer<TokenType>();
         assert_is_token<TokenType>();
+        let deployer = get_deployer<TokenType>();
         *&borrow_global<TokenInfo<TokenType>>(deployer).symbol
     }
     spec symbol {
@@ -397,7 +398,7 @@ module PontemFramework::Token {
         include AbortsIfNoToken<TokenType>;
         ensures result == spec_symbol<TokenType>();
     }
-    spec fun spec_symbol<TokenType>(): vector<u8> {
+    spec fun spec_symbol<TokenType>(): String {
         spec_token_info<TokenType>().symbol
     }
 
@@ -407,7 +408,7 @@ module PontemFramework::Token {
 
     /// Asserts that `TokenType` is a registered token.
     public fun assert_is_token<TokenType>() {
-        assert(is_token<TokenType>(), Errors::not_published(ETOKEN_INFO));
+        assert(is_token<TokenType>(), Errors::not_published(ERR_TOKEN_INFO));
     }
     spec assert_is_token {
         pragma opaque;

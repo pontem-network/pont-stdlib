@@ -5,6 +5,7 @@ module PontemFramework::PontAccount {
     use Std::Event::{Self, EventHandle};
     use Std::Errors;
     use Std::Signer;
+    use Std::ASCII::String;
 
     /// The resource stores sent/recieved event handlers for account.
     struct PontAccount has key {
@@ -30,7 +31,7 @@ module PontemFramework::PontAccount {
         /// The amount of Token<TokenType> sent
         amount: u64,
         /// The code symbol for the token that was sent
-        symbol: vector<u8>,
+        symbol: String,
         /// The address that was paid
         payee: address,
         /// Metadata associated with the payment
@@ -42,27 +43,25 @@ module PontemFramework::PontAccount {
         /// The amount of Token<TokenType> received
         amount: u64,
         /// The code symbol for the token that was received
-        symbol: vector<u8>,
+        symbol: String,
         /// The address that sent the token
         payer: address,
         /// Metadata associated with the payment
         metadata: vector<u8>,
     }
 
-    const MAX_U64: u128 = 18446744073709551615;
-
     /// The `PontAccount` resource is not in the required state
-    const EACCOUNT: u64 = 0;
+    const ERR_ACCOUNT: u64 = 0;
     /// Tried to deposit a token whose value was zero
-    const ETOKEN_DEPOSIT_IS_ZERO: u64 = 1;
+    const ERR_TOKEN_DEPOSIT_IS_ZERO: u64 = 1;
     /// The account does not hold a large enough balance in the specified token
-    const EINSUFFICIENT_BALANCE: u64 = 2;
+    const ERR_INSUFFICIENT_BALANCE: u64 = 2;
     /// Tried to add a balance in a token that this account already has
-    const EADD_EXISTING_TOKEN: u64 = 3;
+    const ERR_ADD_EXISTING_TOKEN: u64 = 3;
     /// Tried to withdraw funds in a token that the account does hold
-    const EPAYER_DOESNT_HOLD_TOKEN: u64 = 4;
+    const ERR_PAYER_DOESNT_HOLD_TOKEN: u64 = 4;
     /// An account cannot be created at the reserved core code address of 0x1
-    const ECANNOT_CREATE_AT_CORE_CODE: u64 = 5;
+    const ERR_CANNOT_CREATE_AT_CORE_CODE: u64 = 5;
 
     /// If `Balance<TokenType>` exists on account.
     fun balance_exists<TokenType>(account: address): bool {
@@ -79,7 +78,7 @@ module PontemFramework::PontAccount {
     fun create_account(account: &signer) {
         assert(
             Signer::address_of(account) != @PontemFramework,
-            Errors::invalid_argument(ECANNOT_CREATE_AT_CORE_CODE)
+            Errors::invalid_argument(ERR_CANNOT_CREATE_AT_CORE_CODE)
         );
 
         move_to(account, PontAccount {
@@ -99,7 +98,7 @@ module PontemFramework::PontAccount {
 
         // Check that the `to_deposit` token is non-zero
         let deposit_value = Token::value(&to_deposit);
-        assert(deposit_value > 0, Errors::invalid_argument(ETOKEN_DEPOSIT_IS_ZERO));
+        assert(deposit_value > 0, Errors::invalid_argument(ERR_TOKEN_DEPOSIT_IS_ZERO));
 
         // Create signer for payee.
         let payee_account = create_signer(payee);
@@ -199,7 +198,7 @@ module PontemFramework::PontAccount {
         let token = &mut balance.token;
 
         // Abort if this withdrawal would make the `payer`'s balance go negative
-        assert(Token::value(token) >= amount, Errors::limit_exceeded(EINSUFFICIENT_BALANCE));
+        assert(Token::value(token) >= amount, Errors::limit_exceeded(ERR_INSUFFICIENT_BALANCE));
         Token::withdraw(token, amount)
     }
     spec withdraw_from_balance {
@@ -222,7 +221,7 @@ module PontemFramework::PontAccount {
         PontTimestamp::assert_operating();
 
         let payer_address = Signer::address_of(payer);
-        assert(exists<Balance<TokenType>>(payer_address), Errors::not_published(EPAYER_DOESNT_HOLD_TOKEN));
+        assert(exists<Balance<TokenType>>(payer_address), Errors::not_published(ERR_PAYER_DOESNT_HOLD_TOKEN));
 
         let account_balance = borrow_global_mut<Balance<TokenType>>(payer_address);   
 
@@ -382,7 +381,7 @@ module PontemFramework::PontAccount {
 
     /// Return the current balance of the account at `addr`.
     public fun balance<TokenType>(addr: address): u64 acquires Balance {
-        assert(exists<Balance<TokenType>>(addr), Errors::not_published(EPAYER_DOESNT_HOLD_TOKEN));
+        assert(exists<Balance<TokenType>>(addr), Errors::not_published(ERR_PAYER_DOESNT_HOLD_TOKEN));
         balance_for(borrow_global<Balance<TokenType>>(addr))
     }
     spec balance {
@@ -399,7 +398,7 @@ module PontemFramework::PontAccount {
         // aborts if this account already has a balance in `Token`
         assert(
             !exists<Balance<TokenType>>(addr),
-            Errors::already_published(EADD_EXISTING_TOKEN)
+            Errors::already_published(ERR_ADD_EXISTING_TOKEN)
         );
 
         move_to(account, Balance<TokenType>{ token: Token::zero<TokenType>() })
