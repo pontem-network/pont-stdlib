@@ -23,9 +23,9 @@ module PontemFramework::PontTimestamp {
     const MICRO_CONVERSION_FACTOR: u64 = 1000000;
 
     /// The blockchain is not in the genesis state anymore
-    const ENOT_GENESIS: u64 = 0;
+    const ERR_NOT_GENESIS: u64 = 0;
     /// The blockchain is not in an operating state yet
-    const ENOT_OPERATING: u64 = 1;
+    const ERR_NOT_OPERATING: u64 = 1;
 
     /// Marks that time has started and genesis has finished. This can only be called from genesis and with the root
     /// account.
@@ -80,7 +80,7 @@ module PontemFramework::PontTimestamp {
 
     /// Helper function to assert genesis state.
     public fun assert_genesis() {
-        assert(is_genesis(), Errors::invalid_state(ENOT_GENESIS));
+        assert(is_genesis(), Errors::invalid_state(ERR_NOT_GENESIS));
     }
     spec assert_genesis {
         pragma opaque = true;
@@ -100,7 +100,7 @@ module PontemFramework::PontTimestamp {
 
     /// Helper function to assert operating (!genesis) state.
     public fun assert_operating() {
-        assert(is_operating(), Errors::invalid_state(ENOT_OPERATING));
+        assert(is_operating(), Errors::invalid_state(ERR_NOT_OPERATING));
     }
     spec assert_operating {
         pragma opaque = true;

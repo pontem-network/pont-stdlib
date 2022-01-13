@@ -11,13 +11,16 @@ module PontemFramework::ChainId {
     }
 
     /// The `ChainId` resource was not in the required state
-    const ECHAIN_ID: u64 = 0;
+    const ERR_CHAIN_ID: u64 = 0;
 
     /// Publish the chain ID `id` of this Pontem instance under the Root account
     public fun initialize(root_account: &signer, id: u8) {
         PontTimestamp::assert_genesis();
         CoreAddresses::assert_root(root_account);
-        assert(!exists<ChainId>(Signer::address_of(root_account)), Errors::already_published(ECHAIN_ID));
+        assert(
+            !exists<ChainId>(Signer::address_of(root_account)),
+            Errors::already_published(ERR_CHAIN_ID)
+        );
         move_to(root_account, ChainId { id })
     }
 

@@ -12,13 +12,11 @@ module PontemFramework::Genesis {
         root_account: signer,
         chain_id: u8,
     ) {
-        initialize_internal(
-            &root_account,
-            chain_id,
-        )
+        initialize_internal(&root_account, chain_id)
     }
 
-    /// Initializes the Pontem Framework. Internal so it can be used by both genesis code, and for testing purposes
+    /// Initializes the Pontem Framework.
+    /// Extracted in the separate method, so it can be used by both genesis code, and for testing purposes.
     fun initialize_internal(
         root_account: &signer,
         chain_id: u8,
