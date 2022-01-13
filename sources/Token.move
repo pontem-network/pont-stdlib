@@ -9,6 +9,7 @@ module PontemFramework::Token {
     use Std::Event::{Self, EventHandle};
     use Std::Signer;
     use Std::Reflect;
+    use Std::ASCII::String;
 
     /// The `Token` resource defines the token in the Pontem ecosystem.
     /// Each "token" is coupled with a type `TokenType` specifying the
@@ -27,7 +28,7 @@ module PontemFramework::Token {
         /// Funds added to the system
         amount: u64,
         /// Symbol, e.g. "PONT".
-        symbol: vector<u8>,
+        symbol: String,
     }
 
     /// A `BurnEvent` is emitted every time Token is burned.
@@ -37,7 +38,7 @@ module PontemFramework::Token {
         /// Funds removed from the system
         amount: u64,
         /// Symbol, e.g. "PONT".
-        symbol: vector<u8>,
+        symbol: String,
     }
 
     /// The `MintCapability` resource defines a capability to allow minting
@@ -66,7 +67,7 @@ module PontemFramework::Token {
         decimals: u8,
         /// The code symbol for this `TokenType`.
         /// e.g. for "PONT" this is x"504f4e54". No character limit.
-        symbol: vector<u8>,
+        symbol: String,
         /// Event stream for minting and where `MintEvent`s will be emitted.
         mint_events: EventHandle<MintEvent>,
         /// Event stream for burning, and where `BurnEvent`s will be emitted.
@@ -290,7 +291,7 @@ module PontemFramework::Token {
     public fun register_native_token<TokenType: store>(
         root_account: &signer,
         decimals: u8,
-        symbol: vector<u8>,
+        symbol: String,
         native_key: vector<u8>
     ): (MintCapability<TokenType>, BurnCapability<TokenType>) {
         CoreAddresses::assert_root(root_account);
@@ -309,7 +310,7 @@ module PontemFramework::Token {
     public fun register_token<TokenType>(
         account: &signer,
         decimals: u8,
-        symbol: vector<u8>,
+        symbol: String,
     ): (MintCapability<TokenType>, BurnCapability<TokenType>)
     {
         // check it's called from module deployer.
@@ -336,7 +337,7 @@ module PontemFramework::Token {
     }
     spec schema RegisterTokenAbortsIf<TokenType> {
         account: signer;
-        symbol: vector<u8>;
+        symbol: String;
         decimals: u8;
 
         aborts_if exists<TokenInfo<TokenType>>(Signer::address_of(account))
@@ -386,7 +387,7 @@ module PontemFramework::Token {
 
     /// Returns the token code for the registered token as defined in
     /// its `TokenInfo` resource.
-    public fun symbol<TokenType>(): vector<u8>
+    public fun symbol<TokenType>(): String
     acquires TokenInfo {
         assert_is_token<TokenType>();
         let deployer = get_deployer<TokenType>();
@@ -397,7 +398,7 @@ module PontemFramework::Token {
         include AbortsIfNoToken<TokenType>;
         ensures result == spec_symbol<TokenType>();
     }
-    spec fun spec_symbol<TokenType>(): vector<u8> {
+    spec fun spec_symbol<TokenType>(): String {
         spec_token_info<TokenType>().symbol
     }
 

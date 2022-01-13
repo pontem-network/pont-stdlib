@@ -5,6 +5,7 @@ module PontemFramework::PontAccount {
     use Std::Event::{Self, EventHandle};
     use Std::Errors;
     use Std::Signer;
+    use Std::ASCII::String;
 
     /// The resource stores sent/recieved event handlers for account.
     struct PontAccount has key {
@@ -30,7 +31,7 @@ module PontemFramework::PontAccount {
         /// The amount of Token<TokenType> sent
         amount: u64,
         /// The code symbol for the token that was sent
-        symbol: vector<u8>,
+        symbol: String,
         /// The address that was paid
         payee: address,
         /// Metadata associated with the payment
@@ -42,7 +43,7 @@ module PontemFramework::PontAccount {
         /// The amount of Token<TokenType> received
         amount: u64,
         /// The code symbol for the token that was received
-        symbol: vector<u8>,
+        symbol: String,
         /// The address that sent the token
         payer: address,
         /// Metadata associated with the payment

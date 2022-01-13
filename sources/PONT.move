@@ -3,6 +3,7 @@ module PontemFramework::PONT {
     use PontemFramework::CoreAddresses;
     use PontemFramework::Token;
     use PontemFramework::PontTimestamp;
+    use Std::ASCII;
 
     /// The resource to use if you want to work with PONT balances.
     struct PONT has key, store {}
@@ -23,7 +24,7 @@ module PontemFramework::PONT {
         let (mint_cap, burn_cap) = Token::register_native_token<PONT>(
             root_account,
             10,
-            b"PONT",
+            ASCII::string(b"PONT"),
             b"PONT"
         );
 

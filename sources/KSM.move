@@ -3,6 +3,7 @@ module PontemFramework::KSM {
     use PontemFramework::CoreAddresses;
     use PontemFramework::Token;
     use PontemFramework::PontTimestamp;
+    use Std::ASCII;
 
     /// The resource to use if you want to work with KSM balances.
     struct KSM has key, store {}
@@ -23,7 +24,7 @@ module PontemFramework::KSM {
         let (mint_cap, burn_cap) = Token::register_native_token<KSM>(
             root_account,
             12,
-            b"KSM",
+            ASCII::string(b"KSM"),
             b"KSM",
         );
 
