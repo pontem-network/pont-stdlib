@@ -1,4 +1,4 @@
-/// This module defines a struct storing the metadata of the block and new block events.
+/// This module defines a struct storing the metadata of the block.
 module PontemFramework::PontBlock {
     use PontemFramework::CoreAddresses;
     use PontemFramework::PontTimestamp;
@@ -13,15 +13,15 @@ module PontemFramework::PontBlock {
     const EBLOCK_METADATA: u64 = 0;
 
     /// This can only be invoked by the Association address, and only a single time.
-    /// Currently, it is invoked in the genesis transaction
-    public fun initialize_block_metadata(account: &signer) {
+    /// Currently, it is invoked in the genesis transaction.
+    public fun initialize_block_metadata(root_account: &signer) {
         PontTimestamp::assert_genesis();
-        // Operational constraint, only callable by the Association address
-        CoreAddresses::assert_root(account);
+        // Operational constraint, only callable by the Root address
+        CoreAddresses::assert_root(root_account);
 
         assert(!is_initialized(), Errors::already_published(EBLOCK_METADATA));
         move_to<BlockMetadata>(
-            account,
+            root_account,
             BlockMetadata {
                 height: 0,
             }

@@ -6,7 +6,7 @@ module PontemFramework::CoreAddresses {
     /// The operation can only be performed by the account at 0xA550C18 (Root)
     const E_ROOT: u64 = 0;
 
-    /// Assert that the account is the Diem root address.
+    /// Assert that the account is the  Root address.
     public fun assert_root(account: &signer) {
         assert(Signer::address_of(account) == @Root, Errors::requires_address(E_ROOT))
     }

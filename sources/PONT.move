@@ -1,24 +1,26 @@
-/// PONT native coin.
+/// PONT (Pontem) native token.
 module PontemFramework::PONT {
     use PontemFramework::CoreAddresses;
-    use PontemFramework::Pontem;
+    use PontemFramework::Token;
     use PontemFramework::PontTimestamp;
 
+    /// The resource to use if you want to work with PONT balances.
     struct PONT has key, store {}
 
+    /// Just drop mint and burn capabilities by storing in inaccessible resource forever.
     struct Drop has key {
-        mint_cap: Pontem::MintCapability<PONT>,
-        burn_cap: Pontem::BurnCapability<PONT>,
+        mint_cap: Token::MintCapability<PONT>,
+        burn_cap: Token::BurnCapability<PONT>,
     }
 
-    /// Registers the `PONT` cointype. This can only be called from genesis.
+    /// Registers the `PONT` token as native token. This can only be called from genesis.
     public fun initialize(
         root_account: &signer,
     ) {
         PontTimestamp::assert_genesis();
         CoreAddresses::assert_root(root_account);
 
-        let (mint_cap, burn_cap) = Pontem::register_native_currency<PONT>(
+        let (mint_cap, burn_cap) = Token::register_native_token<PONT>(
             root_account,
             10,
             b"PONT",
