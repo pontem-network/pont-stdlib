@@ -46,6 +46,12 @@ module PontemFramework::PontBlock {
         borrow_global<BlockMetadata>(@Root).height
     }
 
+    #[test_only]
+    public fun set_current_block_height(height: u64) acquires BlockMetadata {
+        assert(is_initialized(), Errors::not_published(ERR_BLOCK_METADATA));
+        borrow_global_mut<BlockMetadata>(@Root).height = height
+    }
+
     spec module { } // Switch documentation context to module level.
 
     /// # Initialization
