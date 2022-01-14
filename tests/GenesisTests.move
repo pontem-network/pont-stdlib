@@ -5,11 +5,11 @@ module PontemFramework::GenesisTests {
     use PontemFramework::PONT::PONT;
 
     #[test(acc = @0x1234)]
+    #[expected_failure(abort_code = 2)]
     fun test_genesis_cannot_be_started_with_any_other_account(acc: signer) {
         Genesis::setup(&acc, 1);
     }
 
-    // TODO: change into proper abort_code
     #[test(root_acc = @Root)]
     #[expected_failure(abort_code = 1)]
     fun test_genesis_cannot_be_run_twice(root_acc: signer) {

@@ -8,6 +8,6 @@ module PontemFramework::PontBlockTests {
         Genesis::setup(&root_acc, 1);
 
         PontBlock::set_current_block_height(10);
-        assert(PontBlock::get_current_block_height() == 10, 1);
+        assert!(PontBlock::get_current_block_height() == 10, 1);
     }
 }

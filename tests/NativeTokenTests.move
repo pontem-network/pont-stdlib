@@ -14,7 +14,7 @@ module PontemFramework::NativeTokenTests {
         PontAccount::deposit(&root_acc, user_addr, ponts, b"");
         PontAccount::deposit(&root_acc, user_addr, ksms, b"");
 
-        assert(PontAccount::balance<PONT>(user_addr) == 2, 1);
-        assert(PontAccount::balance<KSM>(user_addr) == 3, 2);
+        assert!(PontAccount::balance<PONT>(user_addr) == 2, 1);
+        assert!(PontAccount::balance<KSM>(user_addr) == 3, 2);
     }
 }

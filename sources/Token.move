@@ -14,7 +14,7 @@ module PontemFramework::Token {
     /// The `Token` resource defines the token in the Pontem ecosystem.
     /// Each "token" is coupled with a type `TokenType` specifying the
     /// token type, and a `value` field specifying the value of the token.
-    struct Token<phantom TokenType> has store {
+    struct Token<phantom TokenType> has store, drop {
         /// The value of this token in the base units for `TokenType`
         value: u64
     }

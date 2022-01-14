@@ -6,6 +6,6 @@ module PontemFramework::ChainIdTests {
     fun test_chain_id_initialized_on_genesis(root_acc: signer) {
         Genesis::setup(&root_acc, 1);
 
-        assert(ChainId::get() == 1, 1);
+        assert!(ChainId::get() == 1, 1);
     }
 }

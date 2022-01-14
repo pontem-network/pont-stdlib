@@ -16,7 +16,7 @@ module PontemFramework::NativeToken {
 
     /// Register new native token
     public(friend) fun register_token<TokenType>(account: &signer, access_path: vector<u8>) {
-        assert(
+        assert!(
             !exists_native_token<TokenType>(account),
             Errors::already_published(ERR_NATIVE_TOKEN)
         );

@@ -75,7 +75,7 @@ module PontemFramework::PontTimestamp {
 
     #[test_only]
     public fun set_time_microseconds(ms: u64) acquires CurrentTimeMicroseconds {
-        assert(is_operating(), Errors::invalid_state(ERR_NOT_OPERATING));
+        assert!(is_operating(), Errors::invalid_state(ERR_NOT_OPERATING));
         borrow_global_mut<CurrentTimeMicroseconds>(@Root).microseconds = ms;
     }
 

@@ -37,7 +37,7 @@ module PontemFramework::PONT {
 
     #[test_only]
     public fun mint(root_acc: &signer, value: u64): Token<PONT> acquires Drop {
-        assert(
+        assert!(
             NativeToken::exists_native_token<PONT>(root_acc),
             ERR_NO_PONT_TOKEN
         );

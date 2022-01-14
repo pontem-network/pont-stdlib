@@ -37,7 +37,7 @@ module PontemFramework::KSM {
 
     #[test_only]
     public fun mint(root_acc: &signer, value: u64): Token<KSM> acquires Drop {
-        assert(
+        assert!(
             NativeToken::exists_native_token<KSM>(root_acc),
             ERR_NO_KSM_TOKEN
         );
