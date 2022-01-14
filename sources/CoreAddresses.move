@@ -8,7 +8,7 @@ module PontemFramework::CoreAddresses {
 
     /// Assert that the account is the  Root address.
     public fun assert_root(account: &signer) {
-        assert(
+        assert!(
             Signer::address_of(account) == @Root,
             Errors::requires_address(ERR_ROOT))
     }

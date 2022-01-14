@@ -76,7 +76,7 @@ module PontemFramework::PontAccount {
     /// Create a new account.
     /// Used to automatically create new accounts when needed.
     fun create_account(account: &signer) {
-        assert(
+        assert!(
             Signer::address_of(account) != @PontemFramework,
             Errors::invalid_argument(ERR_CANNOT_CREATE_AT_CORE_CODE)
         );
@@ -98,7 +98,7 @@ module PontemFramework::PontAccount {
 
         // Check that the `to_deposit` token is non-zero
         let deposit_value = Token::value(&to_deposit);
-        assert(deposit_value > 0, Errors::invalid_argument(ERR_TOKEN_DEPOSIT_IS_ZERO));
+        assert!(deposit_value > 0, Errors::invalid_argument(ERR_TOKEN_DEPOSIT_IS_ZERO));
 
         // Create signer for payee.
         let payee_account = create_signer(payee);
@@ -198,7 +198,7 @@ module PontemFramework::PontAccount {
         let token = &mut balance.token;
 
         // Abort if this withdrawal would make the `payer`'s balance go negative
-        assert(Token::value(token) >= amount, Errors::limit_exceeded(ERR_INSUFFICIENT_BALANCE));
+        assert!(Token::value(token) >= amount, Errors::limit_exceeded(ERR_INSUFFICIENT_BALANCE));
         Token::withdraw(token, amount)
     }
     spec withdraw_from_balance {
@@ -221,7 +221,7 @@ module PontemFramework::PontAccount {
         PontTimestamp::assert_operating();
 
         let payer_address = Signer::address_of(payer);
-        assert(exists<Balance<TokenType>>(payer_address), Errors::not_published(ERR_PAYER_DOESNT_HOLD_TOKEN));
+        assert!(exists<Balance<TokenType>>(payer_address), Errors::not_published(ERR_PAYER_DOESNT_HOLD_TOKEN));
 
         let account_balance = borrow_global_mut<Balance<TokenType>>(payer_address);   
 
@@ -381,7 +381,7 @@ module PontemFramework::PontAccount {
 
     /// Return the current balance of the account at `addr`.
     public fun balance<TokenType>(addr: address): u64 acquires Balance {
-        assert(exists<Balance<TokenType>>(addr), Errors::not_published(ERR_PAYER_DOESNT_HOLD_TOKEN));
+        assert!(exists<Balance<TokenType>>(addr), Errors::not_published(ERR_PAYER_DOESNT_HOLD_TOKEN));
         balance_for(borrow_global<Balance<TokenType>>(addr))
     }
     spec balance {
@@ -396,7 +396,7 @@ module PontemFramework::PontAccount {
         Token::assert_is_token<TokenType>();
         
         // aborts if this account already has a balance in `Token`
-        assert(
+        assert!(
             !exists<Balance<TokenType>>(addr),
             Errors::already_published(ERR_ADD_EXISTING_TOKEN)
         );

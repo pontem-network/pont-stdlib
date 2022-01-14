@@ -19,7 +19,7 @@ module PontemFramework::PontBlock {
         // Operational constraint, only callable by the Root address
         CoreAddresses::assert_root(root_account);
 
-        assert(!is_initialized(), Errors::already_published(ERR_BLOCK_METADATA));
+        assert!(!is_initialized(), Errors::already_published(ERR_BLOCK_METADATA));
         move_to<BlockMetadata>(
             root_account,
             BlockMetadata {
@@ -42,7 +42,7 @@ module PontemFramework::PontBlock {
 
     /// Get the current block height
     public fun get_current_block_height(): u64 acquires BlockMetadata {
-        assert(is_initialized(), Errors::not_published(ERR_BLOCK_METADATA));
+        assert!(is_initialized(), Errors::not_published(ERR_BLOCK_METADATA));
         borrow_global<BlockMetadata>(@Root).height
     }
 
