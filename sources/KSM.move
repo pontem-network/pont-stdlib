@@ -1,9 +1,13 @@
 /// KSM (Kusama) native token.
 module PontemFramework::KSM {
     use PontemFramework::CoreAddresses;
-    use PontemFramework::Token;
+    use PontemFramework::Token::{Self, Token};
     use PontemFramework::PontTimestamp;
+    use PontemFramework::NativeToken;
     use Std::ASCII;
+    use Std::Signer;
+
+    const ERR_NO_KSM_TOKEN: u64 = 0;
 
     /// The resource to use if you want to work with KSM balances.
     struct KSM has key, store {}
@@ -29,5 +33,15 @@ module PontemFramework::KSM {
         );
 
         move_to(root_account, Drop {mint_cap, burn_cap});
+    }
+
+    #[test_only]
+    public fun mint(root_acc: &signer, value: u64): Token<KSM> acquires Drop {
+        assert(
+            NativeToken::exists_native_token<KSM>(root_acc),
+            ERR_NO_KSM_TOKEN
+        );
+        let mint_cap = &borrow_global<Drop>(Signer::address_of(root_acc)).mint_cap;
+        Token::mint(value, mint_cap)
     }
 }

@@ -16,10 +16,14 @@ module PontemFramework::NativeToken {
 
     /// Register new native token
     public(friend) fun register_token<TokenType>(account: &signer, access_path: vector<u8>) {
-        assert!(
-            !exists<NativeToken<TokenType>>(Signer::address_of(account)),
+        assert(
+            !exists_native_token<TokenType>(account),
             Errors::already_published(ERR_NATIVE_TOKEN)
         );
         move_to(account, NativeToken<TokenType> { access_path })
+    }
+
+    public fun exists_native_token<TokenType>(account: &signer): bool {
+        exists<NativeToken<TokenType>>(Signer::address_of(account))
     }
 }
