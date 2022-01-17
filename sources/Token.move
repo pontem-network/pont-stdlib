@@ -88,7 +88,7 @@ module PontemFramework::Token {
     /// A withdrawal greater than the value of the token was attempted.
     const ERR_AMOUNT_EXCEEDS_TOKEN_VALUE: u64 = 4;
     /// When token registered not from deployer.
-    const ERR_WRONG_DEPLOYER: u64 = 5;
+    const ERR_ACC_IS_NOT_TOKEN_DEPLOYER: u64 = 5;
 
     /// Create a new `Token<TokenType>` with a value of `0`. Anyone can call
     /// this and it will be successful as long as `TokenType` is a registered token.
@@ -211,7 +211,7 @@ module PontemFramework::Token {
         let info = borrow_global_mut<TokenInfo<TokenType>>(deployer);
 
         assert!(MAX_U128 - info.total_value >= (value as u128), Errors::limit_exceeded(ERR_TOKEN_INFO));
-        
+
         info.total_value = info.total_value + (value as u128);
 
         Event::emit_event(
@@ -314,7 +314,7 @@ module PontemFramework::Token {
     {
         // check it's called from module deployer.
         let deployer = get_deployer<TokenType>();
-        assert!(Signer::address_of(account) == deployer, Errors::custom(ERR_WRONG_DEPLOYER));
+        assert!(Signer::address_of(account) == deployer, Errors::custom(ERR_ACC_IS_NOT_TOKEN_DEPLOYER));
 
         assert!(
             !exists<TokenInfo<TokenType>>(Signer::address_of(account)),
