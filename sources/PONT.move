@@ -42,4 +42,14 @@ module PontemFramework::PONT {
         let mint_cap = &borrow_global<Drop>(Std::Signer::address_of(root_acc)).mint_cap;
         Token::mint(value, mint_cap)
     }
+
+    #[test_only]
+    public fun burn(root_acc: &signer, to_burn: Token::Token<PONT>) acquires Drop {
+        assert!(
+            PontemFramework::NativeToken::exists_native_token<PONT>(root_acc),
+            ERR_NO_PONT_TOKEN
+        );
+        let burn_cap = &borrow_global<Drop>(Std::Signer::address_of(root_acc)).burn_cap;
+        Token::burn(to_burn, burn_cap)
+    }
 }

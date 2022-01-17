@@ -42,4 +42,14 @@ module PontemFramework::KSM {
         let mint_cap = &borrow_global<Drop>(Std::Signer::address_of(root_acc)).mint_cap;
         Token::mint(value, mint_cap)
     }
+
+    #[test_only]
+    public fun burn(root_acc: &signer, to_burn: Token::Token<KSM>) acquires Drop {
+        assert!(
+            PontemFramework::NativeToken::exists_native_token<KSM>(root_acc),
+            ERR_NO_KSM_TOKEN
+        );
+        let burn_cap = &borrow_global<Drop>(Std::Signer::address_of(root_acc)).burn_cap;
+        Token::burn(to_burn, burn_cap)
+    }
 }

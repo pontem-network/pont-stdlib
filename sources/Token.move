@@ -14,7 +14,7 @@ module PontemFramework::Token {
     /// The `Token` resource defines the token in the Pontem ecosystem.
     /// Each "token" is coupled with a type `TokenType` specifying the
     /// token type, and a `value` field specifying the value of the token.
-    struct Token<phantom TokenType> has store, drop {
+    struct Token<phantom TokenType> has store {
         /// The value of this token in the base units for `TokenType`
         value: u64
     }
@@ -260,7 +260,7 @@ module PontemFramework::Token {
     /// Burn `to_burn` tokens.
     /// The function requires `BurnCapability`.
     public fun burn<TokenType> (
-        to_burn: &mut Token<TokenType>,
+        to_burn: Token<TokenType>,
         _capability: &BurnCapability<TokenType>,
     ) acquires TokenInfo {
         assert_is_token<TokenType>();
@@ -269,8 +269,7 @@ module PontemFramework::Token {
         let symbol = symbol<TokenType>();
 
         // Destroying tokens.
-        let Token { value } = withdraw_all<TokenType>(to_burn);
-        
+        let Token { value } = to_burn;
         let info = borrow_global_mut<TokenInfo<TokenType>>(deployer);
 
         assert!(info.total_value >= (value as u128), Errors::limit_exceeded(ERR_TOKEN_INFO));
