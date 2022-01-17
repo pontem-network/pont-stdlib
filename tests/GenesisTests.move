@@ -1,3 +1,4 @@
+#[test_only]
 module PontemFramework::GenesisTests {
     use PontemFramework::Genesis;
     use PontemFramework::Token;

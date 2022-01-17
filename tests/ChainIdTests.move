@@ -1,3 +1,4 @@
+#[test_only]
 module PontemFramework::ChainIdTests {
     use PontemFramework::ChainId;
     use PontemFramework::Genesis;
