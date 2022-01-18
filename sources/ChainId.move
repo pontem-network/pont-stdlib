@@ -17,7 +17,7 @@ module PontemFramework::ChainId {
     public fun initialize(root_account: &signer, id: u8) {
         PontTimestamp::assert_genesis();
         CoreAddresses::assert_root(root_account);
-        assert(
+        assert!(
             !exists<ChainId>(Signer::address_of(root_account)),
             Errors::already_published(ERR_CHAIN_ID)
         );
