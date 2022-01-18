@@ -106,21 +106,22 @@ module PontemFramework::PontAccount {
         pragma opaque;
         modifies global<Balance<TokenType>>(payee);
         modifies global<PontAccount>(payee);
+
         let amount = to_deposit.value;
-//        include DepositAbortsIf<TokenType>{amount: amount};
-//        include DepositEnsures<TokenType>{amount: amount};
         let payer_addr = Signer::address_of(payer);
+        include DepositAbortsIf<TokenType>{ payer: payer_addr, amount };
+        include DepositEnsures<TokenType>{ amount };
         include DepositEmits<TokenType>{ payer: payer_addr, amount };
     }
-//    spec schema DepositAbortsIf<TokenType> {
-//        payer: address;
-//        payee: address;
-//        amount: u64;
-//        metadata: vector<u8>;
+    spec schema DepositAbortsIf<TokenType> {
+        payer: address;
+        payee: address;
+        amount: u64;
+        metadata: vector<u8>;
 //        include DepositAbortsIfRestricted<TokenType>;
-//        aborts_if !exists<Balance<TokenType>>(payee) with Errors::INVALID_ARGUMENT;
+        aborts_if !exists<Balance<TokenType>>(payee) with Errors::INVALID_ARGUMENT;
 //        aborts_if !exists_at(payee) with Errors::NOT_PUBLISHED;
-//    }
+    }
 //    spec schema DepositOverflowAbortsIf<TokenType> {
 //        payee: address;
 //        amount: u64;
@@ -135,21 +136,21 @@ module PontemFramework::PontAccount {
 //        aborts_if amount == 0 with Errors::INVALID_ARGUMENT;
 //        include Token::AbortsIfNoToken<TokenType>;
 //    }
-//    spec schema DepositEnsures<TokenType> {
-//        payee: address;
-//        amount: u64;
-//
-//        // TODO(wrwg): precisely specify what changed in the modified resources using `update_field`
-//        ensures exists<Balance<TokenType>>(payee);
-//        ensures balance<TokenType>(payee) == old(balance<TokenType>(payee)) + amount;
-//
-//        ensures exists<PontAccount>(payee);
-//
+    spec schema DepositEnsures<TokenType> {
+        payee: address;
+        amount: u64;
+
+        // TODO(wrwg): precisely specify what changed in the modified resources using `update_field`
+        ensures exists<Balance<TokenType>>(payee);
+        ensures balance<TokenType>(payee) == old(balance<TokenType>(payee)) + amount;
+
+        ensures exists<PontAccount>(payee);
+
 //        ensures Event::spec_guid_eq(global<PontAccount>(payee).sent_events,
 //                                    old(global<PontAccount>(payee).sent_events));
 //        ensures Event::spec_guid_eq(global<PontAccount>(payee).received_events,
 //                                    old(global<PontAccount>(payee).received_events));
-//    }
+    }
     spec schema DepositEmits<TokenType> {
         payer: address;
         payee: address;
@@ -195,19 +196,15 @@ module PontemFramework::PontAccount {
         );
     }
     spec pay_from {
-//        payer: &signer;
-//        payee: address;
-//        amount: u64;
-//        metadata: vector<u8>;
-//
-//        modifies global<PontAccount>(payer);
-//        modifies global<PontAccount>(payee);
-//        modifies global<Balance<TokenType>>(payer);
-//        modifies global<Balance<TokenType>>(payee);
+        let payer_addr = Signer::address_of(payer);
+        modifies global<PontAccount>(payer_addr);
+        modifies global<PontAccount>(payee);
+        modifies global<Balance<TokenType>>(payer_addr);
+        modifies global<Balance<TokenType>>(payee);
 //        ensures exists_at(payer);
 //        ensures exists_at(payee);
-//        ensures exists<Balance<TokenType>>(payer);
-//        ensures exists<Balance<TokenType>>(payee);
+        ensures exists<Balance<TokenType>>(payer_addr);
+        ensures exists<Balance<TokenType>>(payee);
 //        ensures Event::spec_guid_eq(global<PontAccount>(payer).sent_events,
 //                                    old(global<PontAccount>(payer).sent_events));
 //        ensures Event::spec_guid_eq(global<PontAccount>(payer).received_events,
@@ -217,7 +214,6 @@ module PontemFramework::PontAccount {
 //        ensures Event::spec_guid_eq(global<PontAccount>(payee).received_events,
 //                                    old(global<PontAccount>(payee).received_events));
 //        include PayFromAbortsIf<TokenType>;
-        let payer_addr = Signer::address_of(payer);
         include PayFromEnsures<TokenType> { payer: payer_addr };
 //        include PayFromEmits<TokenType>;
     }
