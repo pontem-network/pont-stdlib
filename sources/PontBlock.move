@@ -29,7 +29,7 @@ module PontemFramework::PontBlock {
     }
     spec initialize_block_metadata {
         include PontTimestamp::AbortsIfNotGenesis;
-        include CoreAddresses::AbortsIfNotRoot;
+        include CoreAddresses::AbortsIfNotRoot{ account: root_account };
         aborts_if is_initialized() with Errors::ALREADY_PUBLISHED;
         ensures is_initialized();
         ensures get_current_block_height() == 0;
