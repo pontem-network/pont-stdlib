@@ -95,7 +95,7 @@ module PontemFramework::PontTimestamp {
         assert!(is_genesis(), Errors::invalid_state(ERR_NOT_GENESIS));
     }
     spec assert_genesis {
-        pragma opaque = true;
+        pragma opaque;
         include AbortsIfNotGenesis;
     }
 
@@ -115,7 +115,7 @@ module PontemFramework::PontTimestamp {
         assert!(is_operating(), Errors::invalid_state(ERR_NOT_OPERATING));
     }
     spec assert_operating {
-        pragma opaque = true;
+        pragma opaque;
         include AbortsIfNotOperating;
     }
 

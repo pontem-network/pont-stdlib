@@ -146,10 +146,10 @@ module PontemFramework::PontAccount {
 
         ensures exists<PontAccount>(payee);
 
-//        ensures Event::spec_guid_eq(global<PontAccount>(payee).sent_events,
-//                                    old(global<PontAccount>(payee).sent_events));
-//        ensures Event::spec_guid_eq(global<PontAccount>(payee).received_events,
-//                                    old(global<PontAccount>(payee).received_events));
+        ensures Event::spec_guid_eq(global<PontAccount>(payee).sent_events,
+                                    old(global<PontAccount>(payee).sent_events));
+        ensures Event::spec_guid_eq(global<PontAccount>(payee).received_events,
+                                    old(global<PontAccount>(payee).received_events));
     }
     spec schema DepositEmits<TokenType> {
         payer: address;
@@ -205,14 +205,14 @@ module PontemFramework::PontAccount {
 //        ensures exists_at(payee);
         ensures exists<Balance<TokenType>>(payer_addr);
         ensures exists<Balance<TokenType>>(payee);
-//        ensures Event::spec_guid_eq(global<PontAccount>(payer).sent_events,
-//                                    old(global<PontAccount>(payer).sent_events));
-//        ensures Event::spec_guid_eq(global<PontAccount>(payer).received_events,
-//                                    old(global<PontAccount>(payer).received_events));
-//        ensures Event::spec_guid_eq(global<PontAccount>(payee).sent_events,
-//                                    old(global<PontAccount>(payee).sent_events));
-//        ensures Event::spec_guid_eq(global<PontAccount>(payee).received_events,
-//                                    old(global<PontAccount>(payee).received_events));
+        ensures Event::spec_guid_eq(global<PontAccount>(payer_addr).sent_events,
+                                    old(global<PontAccount>(payer_addr).sent_events));
+        ensures Event::spec_guid_eq(global<PontAccount>(payer_addr).received_events,
+                                    old(global<PontAccount>(payer_addr).received_events));
+        ensures Event::spec_guid_eq(global<PontAccount>(payee).sent_events,
+                                    old(global<PontAccount>(payee).sent_events));
+        ensures Event::spec_guid_eq(global<PontAccount>(payee).received_events,
+                                    old(global<PontAccount>(payee).received_events));
 //        include PayFromAbortsIf<TokenType>;
         include PayFromEnsures<TokenType> { payer: payer_addr };
 //        include PayFromEmits<TokenType>;
