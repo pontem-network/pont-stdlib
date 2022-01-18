@@ -31,5 +31,8 @@ jobs:
           sudo chown runner ./dove && chmod +x ./dove
           echo "Dove: $(./dove -V)"
 
+      - name: Build
+        run: ./dove package test
+
       - name: Test
         run: ./dove package test
