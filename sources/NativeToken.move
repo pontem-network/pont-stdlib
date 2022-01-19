@@ -22,6 +22,9 @@ module PontemFramework::NativeToken {
         );
         move_to(account, NativeToken<TokenType> { access_path })
     }
+    spec register_token {
+        modifies global<NativeToken<TokenType>>(Signer::address_of(account));
+    }
 
     public fun exists_native_token<TokenType>(account: &signer): bool {
         exists<NativeToken<TokenType>>(Signer::address_of(account))

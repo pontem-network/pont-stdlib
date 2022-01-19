@@ -118,24 +118,11 @@ module PontemFramework::PontAccount {
         payee: address;
         amount: u64;
         metadata: vector<u8>;
-//        include DepositAbortsIfRestricted<TokenType>;
+
+        include PontTimestamp::AbortsIfNotOperating;
         aborts_if !exists<Balance<TokenType>>(payee) with Errors::INVALID_ARGUMENT;
-//        aborts_if !exists_at(payee) with Errors::NOT_PUBLISHED;
+        aborts_if amount == 0 with Errors::INVALID_ARGUMENT;
     }
-//    spec schema DepositOverflowAbortsIf<TokenType> {
-//        payee: address;
-//        amount: u64;
-//        aborts_if balance<TokenType>(payee) + amount > max_u64() with Errors::LIMIT_EXCEEDED;
-//    }
-//    spec schema DepositAbortsIfRestricted<TokenType> {
-//        payer: &signer;
-//        payee: address;
-//        amount: u64;
-//        metadata: vector<u8>;
-//        include PontTimestamp::AbortsIfNotOperating;
-//        aborts_if amount == 0 with Errors::INVALID_ARGUMENT;
-//        include Token::AbortsIfNoToken<TokenType>;
-//    }
     spec schema DepositEnsures<TokenType> {
         payee: address;
         amount: u64;

@@ -148,7 +148,6 @@ module PontemFramework::Token {
     }
     spec withdraw_all {
         pragma opaque;
-        aborts_if false;
         ensures result.value == old(token.value);
         ensures token.value == 0;
     }
@@ -337,8 +336,8 @@ module PontemFramework::Token {
         include RegisterTokenAbortsIf<TokenType>;
     }
     spec schema RegisterTokenAbortsIf<TokenType> {
-        account: signer;
         decimals: u8;
+        account: signer;
 
         aborts_if exists<TokenInfo<TokenType>>(Signer::address_of(account))
             with Errors::ALREADY_PUBLISHED;
