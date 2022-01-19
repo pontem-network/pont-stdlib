@@ -10,4 +10,4 @@ PontemFramework = "0x1"
 Root = "0xA550C18"
 
 [dependencies]
-MoveStdlib = { git = "https://github.com/pontem-network/move-stdlib.git", rev = "d56a3764f398f97e20905aa192028b58e3cd9f46"}
+MoveStdlib = { git = "https://github.com/pontem-network/move-stdlib.git", rev = "ccd25dfc85c812f56b4a7120bce793edd5f19064"}
