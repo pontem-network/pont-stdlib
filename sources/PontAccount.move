@@ -64,17 +64,22 @@ module PontemFramework::PontAccount {
     const ERR_CANNOT_CREATE_AT_CORE_CODE: u64 = 5;
 
     /// Deposit `Token<TokenType>` to payee account.
-    public fun deposit<TokenType>(
+    public fun deposit<TokenType>(payer: &signer, payee: address, tokens: Token<TokenType>)
+    acquires PontAccount, Balance {
+        deposit_with_metadata(payer, payee, tokens, b"")
+    }
+
+    public fun deposit_with_metadata<TokenType>(
         payer: &signer,
         payee: address,
-        to_deposit: Token<TokenType>,
-        metadata: vector<u8>,
-    ) acquires PontAccount, Balance {
+        tokens: Token<TokenType>,
+        metadata: vector<u8>
+    ) acquires Balance, PontAccount {
         PontTimestamp::assert_operating();
 
-        // Check that the `to_deposit` token is non-zero
-        let deposit_value = Token::value(&to_deposit);
-        assert!(deposit_value > 0, Errors::invalid_argument(ERR_TOKEN_DEPOSIT_IS_ZERO));
+        // Check that the `tokens` amount is non-zero
+        let tokens_amount = Token::value(&tokens);
+        assert!(tokens_amount > 0, Errors::invalid_argument(ERR_TOKEN_DEPOSIT_IS_ZERO));
 
         // Create signer for payee.
         let payee_account = create_signer(payee);
@@ -89,25 +94,25 @@ module PontemFramework::PontAccount {
         };
 
         // Deposit the `to_deposit` token
-        Token::deposit(&mut borrow_global_mut<Balance<TokenType>>(payee).token, to_deposit);
+        Token::deposit(&mut borrow_global_mut<Balance<TokenType>>(payee).token, tokens);
 
         // Log a received event
         Event::emit_event<ReceivedPaymentEvent>(
             &mut borrow_global_mut<PontAccount>(payee).received_events,
-            ReceivedPaymentEvent {
-                amount: deposit_value,
+            ReceivedPaymentEvent{
+                amount: tokens_amount,
                 symbol: Token::symbol<TokenType>(),
                 payer: Signer::address_of(payer),
                 metadata
             }
         );
     }
-    spec deposit {
+    spec deposit_with_metadata {
         pragma opaque;
         modifies global<Balance<TokenType>>(payee);
         modifies global<PontAccount>(payee);
 
-        let amount = to_deposit.value;
+        let amount = tokens.value;
         let payer_addr = Signer::address_of(payer);
         include DepositAbortsIf<TokenType>{ payer: payer_addr, amount };
         include DepositEnsures<TokenType>{ amount };
@@ -134,9 +139,9 @@ module PontemFramework::PontAccount {
         ensures exists<PontAccount>(payee);
 
         ensures Event::spec_guid_eq(global<PontAccount>(payee).sent_events,
-                                    old(global<PontAccount>(payee).sent_events));
+            old(global<PontAccount>(payee).sent_events));
         ensures Event::spec_guid_eq(global<PontAccount>(payee).received_events,
-                                    old(global<PontAccount>(payee).received_events));
+            old(global<PontAccount>(payee).received_events));
     }
     spec schema DepositEmits<TokenType> {
         payer: address;
@@ -144,7 +149,7 @@ module PontemFramework::PontAccount {
         amount: u64;
         metadata: vector<u8>;
         let handle = global<PontAccount>(payee).received_events;
-        let msg = ReceivedPaymentEvent {
+        let msg = ReceivedPaymentEvent{
             amount,
             symbol: Token::spec_symbol<TokenType>(),
             payer,
@@ -163,46 +168,58 @@ module PontemFramework::PontAccount {
         let payer_address = Signer::address_of(payer);
         assert!(exists<Balance<TokenType>>(payer_address), Errors::not_published(ERR_PAYER_DOESNT_HOLD_TOKEN));
 
-        let account_balance = borrow_global_mut<Balance<TokenType>>(payer_address);   
-
+        let account_balance = borrow_global_mut<Balance<TokenType>>(payer_address);
         withdraw_from_balance<TokenType>(account_balance, amount)
     }
 
-    /// Withdraw the balance from payer account and deposit to payee.
     public fun pay_from<TokenType>(
+        payer: &signer,
+        payee: address,
+        amount: u64,
+    ) acquires PontAccount, Balance {
+        pay_from_with_metadata<TokenType>(
+            payer,
+            payee,
+            amount,
+            b""
+        );
+    }
+
+    /// Withdraw the balance from payer account and deposit to payee.
+    public fun pay_from_with_metadata<TokenType>(
         payer: &signer,
         payee: address,
         amount: u64,
         metadata: vector<u8>,
     ) acquires PontAccount, Balance {
-        deposit<TokenType>(
+        deposit_with_metadata<TokenType>(
             payer,
             payee,
             withdraw_from(payer, payee, amount, copy metadata),
             metadata
         );
     }
-    spec pay_from {
+    spec pay_from_with_metadata {
         let payer_addr = Signer::address_of(payer);
         modifies global<PontAccount>(payer_addr);
         modifies global<PontAccount>(payee);
         modifies global<Balance<TokenType>>(payer_addr);
         modifies global<Balance<TokenType>>(payee);
-//        ensures exists_at(payer);
-//        ensures exists_at(payee);
+        //        ensures exists_at(payer);
+        //        ensures exists_at(payee);
         ensures exists<Balance<TokenType>>(payer_addr);
         ensures exists<Balance<TokenType>>(payee);
         ensures Event::spec_guid_eq(global<PontAccount>(payer_addr).sent_events,
-                                    old(global<PontAccount>(payer_addr).sent_events));
+            old(global<PontAccount>(payer_addr).sent_events));
         ensures Event::spec_guid_eq(global<PontAccount>(payer_addr).received_events,
-                                    old(global<PontAccount>(payer_addr).received_events));
+            old(global<PontAccount>(payer_addr).received_events));
         ensures Event::spec_guid_eq(global<PontAccount>(payee).sent_events,
-                                    old(global<PontAccount>(payee).sent_events));
+            old(global<PontAccount>(payee).sent_events));
         ensures Event::spec_guid_eq(global<PontAccount>(payee).received_events,
-                                    old(global<PontAccount>(payee).received_events));
-//        include PayFromAbortsIf<TokenType>;
+            old(global<PontAccount>(payee).received_events));
+        //        include PayFromAbortsIf<TokenType>;
         include PayFromEnsures<TokenType> { payer: payer_addr };
-//        include PayFromEmits<TokenType>;
+        //        include PayFromEmits<TokenType>;
     }
     spec schema PayFromEnsures<TokenType> {
         payer: address;
@@ -263,7 +280,7 @@ module PontemFramework::PontAccount {
         /// This publishes a `Balance<TokenType>` to the caller's account
         ensures exists<Balance<TokenType>>(addr);
         ensures global<Balance<TokenType>>(addr)
-                == Balance<TokenType>{ token: Token<TokenType> { value: 0 } };
+                == Balance<TokenType>{ token: Token<TokenType>{ value: 0 } };
     }
 
 
@@ -294,7 +311,7 @@ module PontemFramework::PontAccount {
             Errors::invalid_argument(ERR_CANNOT_CREATE_AT_CORE_CODE)
         );
 
-        move_to(account, PontAccount {
+        move_to(account, PontAccount{
             received_events: Event::new_event_handle<ReceivedPaymentEvent>(account),
             sent_events: Event::new_event_handle<SentPaymentEvent>(account),
         });
@@ -307,6 +324,7 @@ module PontemFramework::PontAccount {
         account_addr: address;
         modifies global<PontAccount>(account_addr);
     }
+
 
     /// Withdraw `amount` `Token<TokenType>`'s from the account balance.
     fun withdraw_from<TokenType>(
@@ -333,7 +351,7 @@ module PontemFramework::PontAccount {
         // Load the payer's account and emit an event to record the withdrawal
         Event::emit_event<SentPaymentEvent>(
             &mut borrow_global_mut<PontAccount>(payer_address).sent_events,
-            SentPaymentEvent {
+            SentPaymentEvent{
                 amount,
                 symbol: Token::symbol<TokenType>(),
                 payee,
@@ -364,7 +382,7 @@ module PontemFramework::PontAccount {
         amount: u64;
         include PontTimestamp::AbortsIfNotOperating;
         include Token::AbortsIfNoToken<TokenType>;
-//        include WithdrawFromBalanceAbortsIf<TokenType>{payer, balance: global<Balance<TokenType>>(payer)};
+        //        include WithdrawFromBalanceAbortsIf<TokenType>{payer, balance: global<Balance<TokenType>>(payer)};
     }
     spec schema WithdrawFromEmits<TokenType> {
         payer: address;
@@ -372,7 +390,7 @@ module PontemFramework::PontAccount {
         amount: u64;
         metadata: vector<u8>;
         let handle = global<PontAccount>(payer).sent_events;
-        let msg = SentPaymentEvent {
+        let msg = SentPaymentEvent{
             amount,
             symbol: Token::spec_symbol<TokenType>(),
             payee,
@@ -395,7 +413,7 @@ module PontemFramework::PontAccount {
         Token::withdraw(token, amount)
     }
     spec withdraw_from_balance {
-//        include WithdrawFromBalanceAbortsIf<TokenType>;
+        //        include WithdrawFromBalanceAbortsIf<TokenType>;
         include WithdrawFromBalanceEnsures<TokenType>;
     }
     spec schema WithdrawFromBalanceEnsures<TokenType> {

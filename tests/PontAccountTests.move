@@ -16,13 +16,13 @@ module PontemFramework::PontAccountTests {
         let ponts = PONT::mint(&root_acc, 10);
         let (ponts_7, ponts_3) = Token::split(ponts, 3);
 
-        PontAccount::deposit(&root_acc, user1_addr, ponts_7, b"");
-        PontAccount::deposit(&root_acc, user2_addr, ponts_3, b"");
+        PontAccount::deposit(&root_acc, user1_addr, ponts_7);
+        PontAccount::deposit(&root_acc, user2_addr, ponts_3);
 
         assert!(PontAccount::balance<PONT>(user1_addr) == 7, 1);
         assert!(PontAccount::balance<PONT>(user2_addr) == 3, 2);
 
-        PontAccount::pay_from<PONT>(&user1_acc, user2_addr, 5, b"");
+        PontAccount::pay_from<PONT>(&user1_acc, user2_addr, 5);
         assert!(PontAccount::balance<PONT>(user1_addr) == 2, 3);
         assert!(PontAccount::balance<PONT>(user2_addr) == 8, 4);
     }
