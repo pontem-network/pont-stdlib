@@ -135,9 +135,9 @@ module PontemFramework::Token {
     }
     spec withdraw {
         pragma opaque;
-//        pragma verify = false;
-//        aborts_if false;
-        include WithdrawAborts<TokenType> { token, amount };
+        pragma verify = false;
+        aborts_if false;
+//        include WithdrawAborts<TokenType> { token, amount };
 
         ensures token.value == old(token.value) - amount;
         ensures result.value == amount;
