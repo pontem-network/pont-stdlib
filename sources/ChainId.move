@@ -26,12 +26,12 @@ module PontemFramework::ChainId {
 
     spec initialize {
         pragma opaque;
-        let dr_addr = Signer::address_of(root_account);
-        modifies global<ChainId>(root_account);
+        let root_addr = Signer::address_of(root_account);
+        modifies global<ChainId>(root_addr);
         include PontTimestamp::AbortsIfNotGenesis;
-        include CoreAddresses::AbortsIfNotRoot{account: root_account};
-        aborts_if exists<ChainId>(root_account) with Errors::ALREADY_PUBLISHED;
-        ensures exists<ChainId>(root_account);
+        include CoreAddresses::AbortsIfNotRoot{ account: root_account };
+        aborts_if exists<ChainId>(root_addr) with Errors::ALREADY_PUBLISHED;
+        ensures exists<ChainId>(root_addr);
     }
 
     /// Return the chain ID of this Pontem instance

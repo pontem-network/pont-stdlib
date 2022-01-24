@@ -44,7 +44,7 @@ module PontemFramework::TokenTests {
         assert!(Token::value(&ucoins) == 10, 1);
 
         let user_addr = Signer::address_of(&user_acc);
-        PontAccount::deposit(&minter_acc, user_addr, ucoins, b"");
+        PontAccount::deposit(&minter_acc, user_addr, ucoins);
         assert!(PontAccount::balance<UCOIN>(user_addr) == 10, 2);
 
         let withdrawn_ucoins = PontAccount::withdraw<UCOIN>(&user_acc, 3);

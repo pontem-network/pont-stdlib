@@ -15,8 +15,8 @@ module PontemFramework::NativeTokenTests {
         let ksms = KSM::mint(&root_acc, 3);
 
         let user_addr = Signer::address_of(&user_acc);
-        PontAccount::deposit(&root_acc, user_addr, ponts, b"");
-        PontAccount::deposit(&root_acc, user_addr, ksms, b"");
+        PontAccount::deposit(&root_acc, user_addr, ponts);
+        PontAccount::deposit(&root_acc, user_addr, ksms);
 
         assert!(PontAccount::balance<PONT>(user_addr) == 2, 1);
         assert!(PontAccount::balance<KSM>(user_addr) == 3, 2);

@@ -7,6 +7,9 @@ module PontemFramework::Signature {
     /// for more details.
     /// Does not abort.
     native public fun ed25519_validate_pubkey(public_key: vector<u8>): bool;
+    spec ed25519_validate_pubkey {
+        pragma opaque;
+    }
 
     /// Return true if the Ed25519 `signature` on `message` verifies against the Ed25519 public key
     /// `public_key`.
@@ -21,4 +24,7 @@ module PontemFramework::Signature {
         public_key: vector<u8>,
         message: vector<u8>
     ): bool;
+    spec ed25519_verify {
+        pragma opaque;
+    }
 }

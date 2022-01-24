@@ -14,7 +14,7 @@ module PontemFramework::CoreAddresses {
     }
     spec assert_root {
         pragma opaque;
-        include AbortsIfNotRoot;
+        include AbortsIfNotRoot{ account };
     }
 
     /// Specifies that a function aborts if the account does not have the Diem root address.

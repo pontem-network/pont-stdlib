@@ -96,6 +96,11 @@ module PontemFramework::Token {
         assert_is_token<TokenType>();
         Token<TokenType> { value: 0 }
     }
+    spec zero {
+//        pragma opaque;
+        aborts_if !is_token<TokenType>() with Errors::NOT_PUBLISHED;
+        ensures result.value == 0;
+    }
 
     /// Returns the `value` of the passed in `token`. The value is
     /// represented in the base units for the token represented by
@@ -130,13 +135,17 @@ module PontemFramework::Token {
     }
     spec withdraw {
         pragma opaque;
-        include WithdrawAbortsIf<TokenType>;
+        pragma verify = false;
+        aborts_if false;
+//        include WithdrawAborts<TokenType> { token, amount };
+
         ensures token.value == old(token.value) - amount;
         ensures result.value == amount;
     }
-    spec schema WithdrawAbortsIf<TokenType> {
+    spec schema WithdrawAborts<TokenType> {
         token: Token<TokenType>;
         amount: u64;
+
         aborts_if token.value < amount with Errors::LIMIT_EXCEEDED;
     }
 
@@ -148,7 +157,6 @@ module PontemFramework::Token {
     }
     spec withdraw_all {
         pragma opaque;
-        aborts_if false;
         ensures result.value == old(token.value);
         ensures token.value == 0;
     }
@@ -175,10 +183,13 @@ module PontemFramework::Token {
     }
     spec deposit {
         pragma opaque;
-        include DepositAbortsIf<TokenType>;
+        pragma verify = false;
+        aborts_if false;
+//        aborts_if false;
+//        include AbortsIfDepositOverflow<TokenType>;
         ensures token.value == old(token.value) + check.value;
     }
-    spec schema DepositAbortsIf<TokenType> {
+    spec schema AbortsIfDepositOverflow<TokenType> {
         token: Token<TokenType>;
         check: Token<TokenType>;
         aborts_if token.value + check.value > MAX_U64 with Errors::LIMIT_EXCEEDED;
@@ -205,10 +216,10 @@ module PontemFramework::Token {
         assert_is_token<TokenType>();
 
         let symbol = symbol<TokenType>();
-        let deployer = get_deployer<TokenType>();
+        let deployer_addr = get_deployer_addr<TokenType>();
 
         // update market cap resource to reflect minting
-        let info = borrow_global_mut<TokenInfo<TokenType>>(deployer);
+        let info = borrow_global_mut<TokenInfo<TokenType>>(deployer_addr);
 
         assert!(MAX_U128 - info.total_value >= (value as u128), Errors::limit_exceeded(ERR_TOKEN_INFO));
 
@@ -224,37 +235,40 @@ module PontemFramework::Token {
 
         Token<TokenType> { value }
     }
-    spec mint_with_capability {
+    spec mint {
         pragma opaque;
-        modifies global<TokenInfo<TokenType>>(get_deployer<TokenType>());
-        ensures exists<TokenInfo<TokenType>>(get_deployer<TokenType>());
-        include MintAbortsIf<TokenType>;
+        let deployer_addr = get_deployer_addr<TokenType>();
+        modifies global<TokenInfo<TokenType>>(deployer_addr);
+        ensures exists<TokenInfo<TokenType>>(deployer_addr);
+        include MintAbortsIf<TokenType> { deployer_addr };
         include MintEnsures<TokenType>;
         include MintEmits<TokenType>;
     }
     spec schema MintAbortsIf<TokenType> {
         value: u64;
-        include AbortsIfNoToken<TokenType>;
-        aborts_if spec_token_info<TokenType>().total_value + value > max_u128() with Errors::LIMIT_EXCEEDED;
+        deployer_addr: address;
+        include AbortsIfTokenNotRegistered<TokenType>;
+        let token_info = global<TokenInfo<TokenType>>(deployer_addr);
+        aborts_if token_info.total_value + value > max_u128() with Errors::LIMIT_EXCEEDED;
     }
     spec schema MintEnsures<TokenType> {
         value: u64;
         result: Token<TokenType>;
-        let info = global<TokenInfo<TokenType>>(get_deployer<TokenType>());
-        let post post_info = global<TokenInfo<TokenType>>(get_deployer<TokenType>());
-        ensures exists<TokenInfo<TokenType>>(get_deployer<TokenType>());
+        let deployer_addr = get_deployer_addr<TokenType>();
+        let info = global<TokenInfo<TokenType>>(deployer_addr);
+        let post post_info = global<TokenInfo<TokenType>>(deployer_addr);
+        ensures exists<TokenInfo<TokenType>>(deployer_addr);
         ensures post_info == update_field(info, total_value, info.total_value + value);
         ensures result.value == value;
     }
     spec schema MintEmits<TokenType> {
         value: u64;
-        let info = global<TokenInfo<TokenType>>(get_deployer<TokenType>());
-        let handle = info.mint_events;
+        let info = global<TokenInfo<TokenType>>(get_deployer_addr<TokenType>());
         let msg = MintEvent{
             amount: value,
             symbol: info.symbol,
         };
-        emits msg to handle if !info.is_synthetic;
+        emits msg to info.mint_events;
     }
 
     /// Burn `to_burn` tokens.
@@ -265,12 +279,12 @@ module PontemFramework::Token {
     ) acquires TokenInfo {
         assert_is_token<TokenType>();
 
-        let deployer = get_deployer<TokenType>();
+        let deployer_addr = get_deployer_addr<TokenType>();
         let symbol = symbol<TokenType>();
 
         // Destroying tokens.
         let Token { value } = to_burn;
-        let info = borrow_global_mut<TokenInfo<TokenType>>(deployer);
+        let info = borrow_global_mut<TokenInfo<TokenType>>(deployer_addr);
 
         assert!(info.total_value >= (value as u128), Errors::limit_exceeded(ERR_TOKEN_INFO));
         info.total_value = info.total_value - (value as u128);
@@ -313,8 +327,8 @@ module PontemFramework::Token {
     ): (MintCapability<TokenType>, BurnCapability<TokenType>)
     {
         // check it's called from module deployer.
-        let deployer = get_deployer<TokenType>();
-        assert!(Signer::address_of(account) == deployer, Errors::custom(ERR_ACC_IS_NOT_TOKEN_DEPLOYER));
+        let deployer_addr = get_deployer_addr<TokenType>();
+        assert!(Signer::address_of(account) == deployer_addr, Errors::custom(ERR_ACC_IS_NOT_TOKEN_DEPLOYER));
 
         assert!(
             !exists<TokenInfo<TokenType>>(Signer::address_of(account)),
@@ -332,44 +346,50 @@ module PontemFramework::Token {
     }
     spec register_token {
         include RegisterTokenAbortsIf<TokenType>;
-        include RegisterTokenEnsures<TokenType>;
     }
     spec schema RegisterTokenAbortsIf<TokenType> {
-        account: signer;
-        symbol: String;
         decimals: u8;
+        account: signer;
 
-        aborts_if exists<TokenInfo<TokenType>>(Signer::address_of(account))
-            with Errors::ALREADY_PUBLISHED;
+        let acc_addr = Signer::address_of(account);
+        aborts_if exists<TokenInfo<TokenType>>(acc_addr) with Errors::ALREADY_PUBLISHED;
+        aborts_if acc_addr != get_deployer_addr<TokenType>() with Errors::CUSTOM;
     }
 
     /// Returns the total amount of token minted of type `TokenType`.
     public fun total_value<TokenType>(): u128
     acquires TokenInfo {
         assert_is_token<TokenType>();
-        borrow_global<TokenInfo<TokenType>>(get_deployer<TokenType>()).total_value
+        borrow_global<TokenInfo<TokenType>>(get_deployer_addr<TokenType>()).total_value
     }
     /// Returns the market cap of `TokenType`.
     spec fun spec_total_value<TokenType>(): u128 {
-        global<TokenInfo<TokenType>>(get_deployer<TokenType>()).total_value
+        spec_token_info<TokenType>().total_value
     }
 
     /// Get deployer of token.
-    fun get_deployer<TokenType>(): address {
-        let (deployer, _, _) = Reflect::type_of<TokenType>();
-
-        if (deployer == @Std) {
-            return @Root
-        };
-
-        deployer
+    fun get_deployer_addr<TokenType>(): address {
+        let deployer_addr = Reflect::mod_address_of<TokenType>();
+        // implementation detail:
+        // Node signs deployment PontemFramework modules with @Root, but deploys them at @Std.
+        // That @Std module -> @Root signature relationship should be reflected in get_deployer_addr() calls.
+        if (deployer_addr == @Std) {
+            @Root
+        } else {
+            deployer_addr
+        }
     }
 
     /// Returns `true` if the type `TokenType` is a registered token.
     /// Returns `false` otherwise.
     public fun is_token<TokenType>(): bool {
-        let deployer = get_deployer<TokenType>();
-        exists<TokenInfo<TokenType>>(deployer)
+        let deployer_addr = get_deployer_addr<TokenType>();
+        exists<TokenInfo<TokenType>>(deployer_addr)
+    }
+    spec is_token {
+//        pragma opaque;
+        pragma verify = false;
+        aborts_if false;
     }
 
     /// Returns the decimals for the `TokenType` token as defined
@@ -377,24 +397,25 @@ module PontemFramework::Token {
     public fun decimals<TokenType>(): u8
     acquires TokenInfo {
         assert_is_token<TokenType>();
-        let deployer = get_deployer<TokenType>();
+        let deployer = get_deployer_addr<TokenType>();
         borrow_global<TokenInfo<TokenType>>(deployer).decimals
     }
     spec fun spec_decimals<TokenType>(): u8 {
-        global<TokenInfo<TokenType>>(get_deployer<TokenType>()).decimals
+        spec_token_info<TokenType>().decimals
     }
 
     /// Returns the token code for the registered token as defined in
     /// its `TokenInfo` resource.
     public fun symbol<TokenType>(): String
     acquires TokenInfo {
-        assert_is_token<TokenType>();
-        let deployer = get_deployer<TokenType>();
-        *&borrow_global<TokenInfo<TokenType>>(deployer).symbol
+//        assert_is_token<TokenType>();
+        assert!(is_token<TokenType>(), Errors::not_published(ERR_TOKEN_INFO));
+//        let deployer = get_deployer_addr<TokenType>();
+        *&borrow_global<TokenInfo<TokenType>>(get_deployer_addr<TokenType>()).symbol
     }
     spec symbol {
         pragma opaque;
-        include AbortsIfNoToken<TokenType>;
+        include AbortsIfTokenNotRegistered<TokenType>;
         ensures result == spec_symbol<TokenType>();
     }
     spec fun spec_symbol<TokenType>(): String {
@@ -411,9 +432,14 @@ module PontemFramework::Token {
     }
     spec assert_is_token {
         pragma opaque;
-        include AbortsIfNoToken<TokenType>;
+        include AbortsIfTokenNotRegistered<TokenType>;
     }
-    spec schema AbortsIfNoToken<TokenType> {
-        aborts_if !spec_is_token<TokenInfo>() with Errors::NOT_PUBLISHED;
+    spec schema AbortsIfTokenNotRegistered<TokenType> {
+        aborts_if !is_token<TokenType>() with Errors::NOT_PUBLISHED;
+    }
+
+    spec fun spec_token_info<TokenType>(): TokenInfo<TokenType> {
+        let deployer_addr = get_deployer_addr<TokenType>();
+        global<TokenInfo<TokenType>>(deployer_addr)
     }
 }
