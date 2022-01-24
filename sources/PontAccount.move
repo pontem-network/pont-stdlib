@@ -61,87 +61,91 @@ module PontemFramework::PontAccount {
     /// Tried to withdraw funds in a token that the account does hold
     const ERR_PAYER_DOESNT_HOLD_TOKEN: u64 = 4;
     /// An account cannot be created at the reserved core code address of 0x1
-    const ERR_CANNOT_CREATE_AT_CORE_CODE: u64 = 5;
+    const ERR_CANNOT_CREATE_AT_CORE_ADDRESS: u64 = 5;
 
     /// Deposit `Token<TokenType>` to payee account.
-    public fun deposit<TokenType>(payer: &signer, payee: address, tokens: Token<TokenType>)
+    public fun deposit<TokenType>(payer: &signer, payee: address, token: Token<TokenType>)
     acquires PontAccount, Balance {
-        deposit_with_metadata(payer, payee, tokens, b"")
+        deposit_with_metadata(payer, payee, token, b"")
     }
 
     public fun deposit_with_metadata<TokenType>(
-        payer: &signer,
+        payer_acc: &signer,
         payee: address,
-        tokens: Token<TokenType>,
+        token: Token<TokenType>,
         metadata: vector<u8>
     ) acquires Balance, PontAccount {
         PontTimestamp::assert_operating();
 
-        // Check that the `tokens` amount is non-zero
-        let tokens_amount = Token::value(&tokens);
-        assert!(tokens_amount > 0, Errors::invalid_argument(ERR_TOKEN_DEPOSIT_IS_ZERO));
+        // Check that the `token` amount is non-zero
+        let token_amount = Token::value(&token);
+        assert!(token_amount > 0, Errors::invalid_argument(ERR_TOKEN_DEPOSIT_IS_ZERO));
 
         // Create signer for payee.
-        let payee_account = create_signer(payee);
+        let payee_acc = create_signer(payee);
 
-        // Check that an account exists at `payee`
-        if (!account_exists(payee)) {
-            create_account(&payee_account);
+//        // Check that an account exists at `payee`
+        if (!exists<PontAccount>(payee)) {
+            add_user_account(&payee_acc);
         };
 
         if (!balance_exists<TokenType>(payee)) {
-            add_balance<TokenType>(&payee_account);
+            add_balance<TokenType>(&payee_acc);
         };
 
         // Deposit the `to_deposit` token
-        Token::deposit(&mut borrow_global_mut<Balance<TokenType>>(payee).token, tokens);
+        Token::deposit(&mut borrow_global_mut<Balance<TokenType>>(payee).token, token);
 
         // Log a received event
         Event::emit_event<ReceivedPaymentEvent>(
             &mut borrow_global_mut<PontAccount>(payee).received_events,
             ReceivedPaymentEvent{
-                amount: tokens_amount,
+                amount: token_amount,
                 symbol: Token::symbol<TokenType>(),
-                payer: Signer::address_of(payer),
+                payer: Signer::address_of(payer_acc),
                 metadata
             }
         );
     }
     spec deposit_with_metadata {
         pragma opaque;
-        modifies global<Balance<TokenType>>(payee);
-        modifies global<PontAccount>(payee);
 
-        let amount = tokens.value;
-        let payer_addr = Signer::address_of(payer);
-        include DepositAbortsIf<TokenType>{ payer: payer_addr, amount };
+        modifies global<Balance<TokenType>>(payee);
+        include ModifiesPontAccount { account_addr: payee };
+
+        let amount = token.value;
+        let payer = Signer::address_of(payer_acc);
+//        let balance = global<Balance<TokenType>>(payee);
+
+        include DepositAbort<TokenType>{ amount: token.value, payee };
+//        include Token::AbortsIfDepositOverflow<TokenType> { token: global<Balance<TokenType>>(payee).token, check: token };
+
         include DepositEnsures<TokenType>{ amount };
-        include DepositEmits<TokenType>{ payer: payer_addr, amount };
+//        include DepositEmits<TokenType>{ payer, amount };
     }
-    spec schema DepositAbortsIf<TokenType> {
-        payer: address;
+    spec schema DepositAbort<TokenType> {
         payee: address;
         amount: u64;
-        metadata: vector<u8>;
 
         include PontTimestamp::AbortsIfNotOperating;
-        aborts_if !exists<Balance<TokenType>>(payee) with Errors::INVALID_ARGUMENT;
+        include Token::AbortsIfTokenNotRegistered<TokenType>;
+
         aborts_if amount == 0 with Errors::INVALID_ARGUMENT;
+        aborts_if !exists<PontAccount>(payee)
+                  && payee == @PontemFramework with Errors::INVALID_ARGUMENT;
     }
     spec schema DepositEnsures<TokenType> {
         payee: address;
         amount: u64;
 
-        // TODO(wrwg): precisely specify what changed in the modified resources using `update_field`
-        ensures exists<Balance<TokenType>>(payee);
-        ensures balance<TokenType>(payee) == old(balance<TokenType>(payee)) + amount;
-
         ensures exists<PontAccount>(payee);
+        ensures exists<Balance<TokenType>>(payee);
+//        ensures balance<TokenType>(payee) == old(balance<TokenType>(payee)) + amount;
 
-        ensures Event::spec_guid_eq(global<PontAccount>(payee).sent_events,
-            old(global<PontAccount>(payee).sent_events));
-        ensures Event::spec_guid_eq(global<PontAccount>(payee).received_events,
-            old(global<PontAccount>(payee).received_events));
+//        ensures Event::spec_guid_eq(global<PontAccount>(payee).sent_events,
+//            old(global<PontAccount>(payee).sent_events));
+//        ensures Event::spec_guid_eq(global<PontAccount>(payee).received_events,
+//            old(global<PontAccount>(payee).received_events));
     }
     spec schema DepositEmits<TokenType> {
         payer: address;
@@ -187,55 +191,47 @@ module PontemFramework::PontAccount {
 
     /// Withdraw the balance from payer account and deposit to payee.
     public fun pay_from_with_metadata<TokenType>(
-        payer: &signer,
+        payer_acc: &signer,
         payee: address,
         amount: u64,
         metadata: vector<u8>,
     ) acquires PontAccount, Balance {
         deposit_with_metadata<TokenType>(
-            payer,
+            payer_acc,
             payee,
-            withdraw_from(payer, payee, amount, copy metadata),
+            withdraw_from(payer_acc, payee, amount, copy metadata),
             metadata
         );
     }
     spec pay_from_with_metadata {
-        let payer_addr = Signer::address_of(payer);
-        modifies global<PontAccount>(payer_addr);
+        let payer = Signer::address_of(payer_acc);
+        modifies global<PontAccount>(payer);
         modifies global<PontAccount>(payee);
-        modifies global<Balance<TokenType>>(payer_addr);
+        modifies global<Balance<TokenType>>(payer);
         modifies global<Balance<TokenType>>(payee);
-        //        ensures exists_at(payer);
-        //        ensures exists_at(payee);
-        ensures exists<Balance<TokenType>>(payer_addr);
+
+        ensures exists<Balance<TokenType>>(payer);
         ensures exists<Balance<TokenType>>(payee);
-        ensures Event::spec_guid_eq(global<PontAccount>(payer_addr).sent_events,
-            old(global<PontAccount>(payer_addr).sent_events));
-        ensures Event::spec_guid_eq(global<PontAccount>(payer_addr).received_events,
-            old(global<PontAccount>(payer_addr).received_events));
-        ensures Event::spec_guid_eq(global<PontAccount>(payee).sent_events,
-            old(global<PontAccount>(payee).sent_events));
-        ensures Event::spec_guid_eq(global<PontAccount>(payee).received_events,
-            old(global<PontAccount>(payee).received_events));
+
         //        include PayFromAbortsIf<TokenType>;
-        include PayFromEnsures<TokenType> { payer: payer_addr };
-        //        include PayFromEmits<TokenType>;
+        include PayFromEnsures<TokenType> { payer: payer };
+//        include PayFromEmits<TokenType>;
     }
     spec schema PayFromEnsures<TokenType> {
         payer: address;
         payee: address;
         amount: u64;
-        ensures payer == payee ==> balance<TokenType>(payer) == old(balance<TokenType>(payer));
-        ensures payer != payee ==> balance<TokenType>(payer) == old(balance<TokenType>(payer)) - amount;
-        ensures payer != payee ==> balance<TokenType>(payee) == old(balance<TokenType>(payee)) + amount;
+//        ensures payer == payee ==> balance<TokenType>(payer) == old(balance<TokenType>(payer));
+//        ensures payer != payee ==> balance<TokenType>(payer) == old(balance<TokenType>(payer)) - amount;
+//        ensures payer != payee ==> balance<TokenType>(payee) == old(balance<TokenType>(payee)) + amount;
     }
-    spec schema PayFromEmits<TokenType> {
-        payer: address;
-        payee: address;
-        amount: u64;
-        include DepositEmits<TokenType>{ payer };
-        include WithdrawFromEmits<TokenType> { payer };
-    }
+//    spec schema PayFromEmits<TokenType> {
+//        payer: address;
+//        payee: address;
+//        amount: u64;
+//        //        include DepositEmits<TokenType>{ payer };
+//        include WithdrawFromEmits<TokenType> { payer };
+//    }
 
     /// Return the current balance of the account at `addr`.
     public fun balance<TokenType>(addr: address): u64 acquires Balance {
@@ -263,24 +259,27 @@ module PontemFramework::PontAccount {
     }
     spec add_balance {
         /// An account must exist at the address
-        let addr = Signer::address_of(account);
-        include AddTokenAbortsIf<TokenType>;
-        include AddTokenEnsures<TokenType>;
-    }
-    spec schema AddTokenAbortsIf<TokenType> {
-        account: signer;
-        /// `Token` must be valid
-        include Token::AbortsIfNoToken<TokenType>;
+        let account_addr = Signer::address_of(account);
+//        include AddTokenAbortsIf<TokenType>;
+        include Token::AbortsIfTokenNotRegistered<TokenType>;
         /// `account` cannot have an existing balance in `Token`
-        aborts_if exists<Balance<TokenType>>(Signer::address_of(account)) with Errors::ALREADY_PUBLISHED;
+        aborts_if exists<Balance<TokenType>>(account_addr) with Errors::ALREADY_PUBLISHED;
+
+        include AddTokenEnsures<TokenType> { addr: account_addr };
     }
+//    spec schema AddTokenAbortsIf<TokenType> {
+//        account: signer;
+//        /// `Token` must be valid
+//        include Token::IsNotRegisteredTokenAbort<TokenType>;
+//        /// `account` cannot have an existing balance in `Token`
+//        aborts_if exists<Balance<TokenType>>(Signer::address_of(account)) with Errors::ALREADY_PUBLISHED;
+//    }
     spec schema AddTokenEnsures<TokenType> {
         addr: address;
         modifies global<Balance<TokenType>>(addr);
-        /// This publishes a `Balance<TokenType>` to the caller's account
+        // This publishes a `Balance<TokenType>` to the caller's account
         ensures exists<Balance<TokenType>>(addr);
-        ensures global<Balance<TokenType>>(addr)
-                == Balance<TokenType>{ token: Token<TokenType>{ value: 0 } };
+//        ensures global<Balance<TokenType>>(addr).token.value == 0;
     }
 
 
@@ -298,52 +297,53 @@ module PontemFramework::PontAccount {
         exists<Balance<TokenType>>(account)
     }
 
-    /// If `PontAccount` exists on account.
-    fun account_exists(account: address): bool {
-        exists<PontAccount>(account)
+    spec schema AbortsIfPontemFrameworkAccount {
+        acc: signer;
+        aborts_if Signer::address_of(acc) == @PontemFramework with Errors::INVALID_ARGUMENT;
     }
 
     /// Create a new account.
     /// Used to automatically create new accounts when needed.
-    fun create_account(account: &signer) {
+    fun add_user_account(acc: &signer) {
         assert!(
-            Signer::address_of(account) != @PontemFramework,
-            Errors::invalid_argument(ERR_CANNOT_CREATE_AT_CORE_CODE)
+            Signer::address_of(acc) != @PontemFramework,
+            Errors::invalid_argument(ERR_CANNOT_CREATE_AT_CORE_ADDRESS)
         );
-
-        move_to(account, PontAccount{
-            received_events: Event::new_event_handle<ReceivedPaymentEvent>(account),
-            sent_events: Event::new_event_handle<SentPaymentEvent>(account),
+        move_to(acc, PontAccount{
+            received_events: Event::new_event_handle<ReceivedPaymentEvent>(acc),
+            sent_events: Event::new_event_handle<SentPaymentEvent>(acc),
         });
     }
-    spec create_account {
-        let account_addr = Signer::address_of(account);
-        include PontAccountModifies{ account_addr };
+    spec add_user_account {
+        let account_addr = Signer::address_of(acc);
+        include ModifiesPontAccount { account_addr };
+
+        ensures exists<PontAccount>(account_addr);
+//        include PontemFrameworkAccountAbort { acc };
     }
-    spec schema PontAccountModifies {
+    spec schema ModifiesPontAccount {
         account_addr: address;
         modifies global<PontAccount>(account_addr);
     }
 
-
     /// Withdraw `amount` `Token<TokenType>`'s from the account balance.
     fun withdraw_from<TokenType>(
-        payer: &signer,
+        payer_acc: &signer,
         payee: address,
         amount: u64,
         metadata: vector<u8>,
     ): Token<TokenType> acquires Balance, PontAccount {
         PontTimestamp::assert_operating();
 
-        let payer_address = Signer::address_of(payer);
+        let payer_address = Signer::address_of(payer_acc);
 
-        // Check that an account exists at `payee`
-        if (!account_exists(payer_address)) {
-            create_account(payer);
+//        // Check that an account exists at `payee`
+        if (!exists<PontAccount>(payer_address)) {
+            add_user_account(payer_acc);
         };
 
         if (!balance_exists<TokenType>(payer_address)) {
-            add_balance<TokenType>(payer);
+            add_balance<TokenType>(payer_acc);
         };
 
         let account_balance = borrow_global_mut<Balance<TokenType>>(payer_address);
@@ -361,28 +361,30 @@ module PontemFramework::PontAccount {
         withdraw_from_balance<TokenType>(account_balance, amount)
     }
     spec withdraw_from {
-        let payer_addr = Signer::address_of(payer);
+        let payer = Signer::address_of(payer_acc);
 
-        include AddTokenEnsures<TokenType> { addr: payer_addr };
-        include PontAccountModifies { account_addr: payer_addr };
+        include AddTokenEnsures<TokenType> { addr: payer };
+        include ModifiesPontAccount { account_addr: payer };
 
-        ensures exists<PontAccount>(payer_addr);
-        ensures Event::spec_guid_eq(global<PontAccount>(payer_addr).sent_events,
-            old(global<PontAccount>(payer_addr).sent_events));
-        ensures Event::spec_guid_eq(global<PontAccount>(payer_addr).received_events,
-            old(global<PontAccount>(payer_addr).received_events));
+        include WithdrawFromAborts<TokenType> { payer };
+        // include Token::WithdrawAborts<TokenType> { token: global<Balance<TokenType>>(payer).token, amount };
 
-        include WithdrawFromAbortsIf<TokenType>;
-        include WithdrawFromBalanceEnsures<TokenType>{balance: global<Balance<TokenType>>(payer_addr)};
-        include WithdrawFromEmits<TokenType> { payer: payer_addr };
+        ensures exists<PontAccount>(payer);
+        ensures exists<Balance<TokenType>>(payer);
+
+//        include WithdrawFromBalanceEnsures<TokenType>{ balance: global<Balance<TokenType>>(payer) };
+//        include WithdrawFromEmits<TokenType> { payer };
     }
-    spec schema WithdrawFromAbortsIf<TokenType> {
-        payer: &signer;
+    spec schema WithdrawFromAborts<TokenType> {
+        payer: address;
         payee: address;
         amount: u64;
+
         include PontTimestamp::AbortsIfNotOperating;
-        include Token::AbortsIfNoToken<TokenType>;
-        //        include WithdrawFromBalanceAbortsIf<TokenType>{payer, balance: global<Balance<TokenType>>(payer)};
+        include Token::AbortsIfTokenNotRegistered<TokenType>;
+        aborts_if !exists<PontAccount>(payer)
+                  && payer == @PontemFramework with Errors::INVALID_ARGUMENT;
+//        include Token::WithdrawAbortsIf<TokenType> { token: global<Balance<TokenType>>(payer).token, amount };
     }
     spec schema WithdrawFromEmits<TokenType> {
         payer: address;
@@ -407,25 +409,38 @@ module PontemFramework::PontAccount {
         PontTimestamp::assert_operating();
 
         let token = &mut balance.token;
+        assert_enough_tokens_available(token, amount);
 
-        // Abort if this withdrawal would make the `payer`'s balance go negative
-        assert!(Token::value(token) >= amount, Errors::limit_exceeded(ERR_INSUFFICIENT_BALANCE));
         Token::withdraw(token, amount)
     }
     spec withdraw_from_balance {
-        //        include WithdrawFromBalanceAbortsIf<TokenType>;
+        include PontTimestamp::AbortsIfNotOperating;
+//        include Token::WithdrawAborts<TokenType> { token: balance.token, amount };
         include WithdrawFromBalanceEnsures<TokenType>;
     }
     spec schema WithdrawFromBalanceEnsures<TokenType> {
         balance: Balance<TokenType>;
         amount: u64;
         result: Token<TokenType>;
+
         ensures balance.token.value == old(balance.token.value) - amount;
         ensures result.value == amount;
+    }
+
+    fun assert_enough_tokens_available<TokenType>(token: &Token<TokenType>, amount: u64) {
+        // Abort if this withdrawal would make the `payer`'s balance go negative
+        assert!(Token::value(token) >= amount, Errors::limit_exceeded(ERR_INSUFFICIENT_BALANCE));
+    }
+    spec assert_enough_tokens_available {
+        pragma opaque;
+        pragma verify = false;
+        aborts_if false;
     }
 
     native fun create_signer(addr: address): signer;
     spec create_signer {
         pragma opaque;
+        aborts_if false;
+        ensures Signer::address_of(result) == addr;
     }
 }

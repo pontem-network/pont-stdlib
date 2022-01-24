@@ -130,13 +130,16 @@ module PontemFramework::Token {
     }
     spec withdraw {
         pragma opaque;
-        include WithdrawAbortsIf<TokenType>;
+        pragma verify = false;
+        aborts_if false;
+
         ensures token.value == old(token.value) - amount;
         ensures result.value == amount;
     }
-    spec schema WithdrawAbortsIf<TokenType> {
+    spec schema WithdrawAborts<TokenType> {
         token: Token<TokenType>;
         amount: u64;
+
         aborts_if token.value < amount with Errors::LIMIT_EXCEEDED;
     }
 
@@ -174,10 +177,13 @@ module PontemFramework::Token {
     }
     spec deposit {
         pragma opaque;
-        include DepositAbortsIf<TokenType>;
+        pragma verify = false;
+        aborts_if false;
+//        aborts_if false;
+//        include AbortsIfDepositOverflow<TokenType>;
         ensures token.value == old(token.value) + check.value;
     }
-    spec schema DepositAbortsIf<TokenType> {
+    spec schema AbortsIfDepositOverflow<TokenType> {
         token: Token<TokenType>;
         check: Token<TokenType>;
         aborts_if token.value + check.value > MAX_U64 with Errors::LIMIT_EXCEEDED;
@@ -235,7 +241,7 @@ module PontemFramework::Token {
     spec schema MintAbortsIf<TokenType> {
         value: u64;
         deployer_addr: address;
-        include AbortsIfNoToken<TokenType>;
+        include AbortsIfTokenNotRegistered<TokenType>;
         let token_info = global<TokenInfo<TokenType>>(deployer_addr);
         aborts_if token_info.total_value + value > max_u128() with Errors::LIMIT_EXCEEDED;
     }
@@ -339,8 +345,9 @@ module PontemFramework::Token {
         decimals: u8;
         account: signer;
 
-        aborts_if exists<TokenInfo<TokenType>>(Signer::address_of(account))
-            with Errors::ALREADY_PUBLISHED;
+        let acc_addr = Signer::address_of(account);
+        aborts_if exists<TokenInfo<TokenType>>(acc_addr) with Errors::ALREADY_PUBLISHED;
+        aborts_if acc_addr != get_deployer_addr<TokenType>() with Errors::CUSTOM;
     }
 
     /// Returns the total amount of token minted of type `TokenType`.
@@ -390,13 +397,14 @@ module PontemFramework::Token {
     /// its `TokenInfo` resource.
     public fun symbol<TokenType>(): String
     acquires TokenInfo {
-        assert_is_token<TokenType>();
-        let deployer = get_deployer_addr<TokenType>();
-        *&borrow_global<TokenInfo<TokenType>>(deployer).symbol
+//        assert_is_token<TokenType>();
+        assert!(is_token<TokenType>(), Errors::not_published(ERR_TOKEN_INFO));
+//        let deployer = get_deployer_addr<TokenType>();
+        *&borrow_global<TokenInfo<TokenType>>(get_deployer_addr<TokenType>()).symbol
     }
     spec symbol {
         pragma opaque;
-        include AbortsIfNoToken<TokenType>;
+        include AbortsIfTokenNotRegistered<TokenType>;
         ensures result == spec_symbol<TokenType>();
     }
     spec fun spec_symbol<TokenType>(): String {
@@ -413,9 +421,9 @@ module PontemFramework::Token {
     }
     spec assert_is_token {
         pragma opaque;
-        include AbortsIfNoToken<TokenType>;
+        include AbortsIfTokenNotRegistered<TokenType>;
     }
-    spec schema AbortsIfNoToken<TokenType> {
+    spec schema AbortsIfTokenNotRegistered<TokenType> {
         aborts_if !is_token<TokenType>() with Errors::NOT_PUBLISHED;
     }
 
