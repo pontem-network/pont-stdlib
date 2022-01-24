@@ -37,5 +37,5 @@ jobs:
       - name: Test
         run: ./dove package test
 
-      - name: Prove
-        run: ./dove package prove
+#      - name: Prove
+#        run: ./dove package prove
