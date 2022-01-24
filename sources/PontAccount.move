@@ -84,7 +84,7 @@ module PontemFramework::PontAccount {
         // Create signer for payee.
         let payee_acc = create_signer(payee);
 
-//        // Check that an account exists at `payee`
+        // Check that an account exists at `payee`
         if (!exists<PontAccount>(payee)) {
             add_user_account(&payee_acc);
         };
@@ -210,7 +210,7 @@ module PontemFramework::PontAccount {
         ensures exists<Balance<TokenType>>(payer);
         ensures exists<Balance<TokenType>>(payee);
 
-        //        include PayFromAbortsIf<TokenType>;
+//        include PayFromAbortsIf<TokenType>;
         include PayFromEnsures<TokenType> { payer, payee };
 //        include PayFromEmits<TokenType>;
     }
@@ -229,7 +229,7 @@ module PontemFramework::PontAccount {
 //        payer: address;
 //        payee: address;
 //        amount: u64;
-//        //        include DepositEmits<TokenType>{ payer };
+//        include DepositEmits<TokenType>{ payer };
 //        include WithdrawFromEmits<TokenType> { payer };
 //    }
 
@@ -335,7 +335,7 @@ module PontemFramework::PontAccount {
 
         let payer_address = Signer::address_of(payer_acc);
 
-//        // Check that an account exists at `payee`
+        // Check that an account exists at `payee`
         if (!exists<PontAccount>(payer_address)) {
             add_user_account(payer_acc);
         };
@@ -365,7 +365,7 @@ module PontemFramework::PontAccount {
         modifies global<Balance<TokenType>>(payer);
 
         include WithdrawFromAborts<TokenType> { payer };
-        // include Token::WithdrawAborts<TokenType> { token: global<Balance<TokenType>>(payer).token, amount };
+//        include Token::WithdrawAborts<TokenType> { token: global<Balance<TokenType>>(payer).token, amount };
 
         ensures exists<PontAccount>(payer);
         ensures exists<Balance<TokenType>>(payer);
