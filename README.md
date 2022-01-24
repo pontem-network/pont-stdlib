@@ -1,23 +1,21 @@
 # Standard Library
 
-This is modified version of Diem's [Move Standard Library](https://github.com/diem/diem/tree/main/language/diem-framework).
-
-Pontem Network Move Standard library.
+Pontem Standard Library written in Move language.
 
 ## Build
 
 Clone current repository and use [dove](https://github.com/pontem-network/move-tools#dove) to build:
 
 ```sh
-git clone git@github.com:pontem-network/move-stdlib.git
-cd move-stdlib
+git clone git@github.com:pontem-network/pont-stdlib.git
+cd pont-stdlib
 dove build
 ```
 
 See built modules:
 
 ```sh
-ls -la ./target/modules
+ls -la ./build/PontStdlib
 ```
 
 ## LICENSE
