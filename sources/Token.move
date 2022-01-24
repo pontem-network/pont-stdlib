@@ -96,6 +96,11 @@ module PontemFramework::Token {
         assert_is_token<TokenType>();
         Token<TokenType> { value: 0 }
     }
+    spec zero {
+//        pragma opaque;
+        aborts_if !is_token<TokenType>() with Errors::NOT_PUBLISHED;
+        ensures result.value == 0;
+    }
 
     /// Returns the `value` of the passed in `token`. The value is
     /// represented in the base units for the token represented by
@@ -130,8 +135,9 @@ module PontemFramework::Token {
     }
     spec withdraw {
         pragma opaque;
-        pragma verify = false;
-        aborts_if false;
+//        pragma verify = false;
+//        aborts_if false;
+        include WithdrawAborts<TokenType> { token, amount };
 
         ensures token.value == old(token.value) - amount;
         ensures result.value == amount;
@@ -377,8 +383,13 @@ module PontemFramework::Token {
     /// Returns `true` if the type `TokenType` is a registered token.
     /// Returns `false` otherwise.
     public fun is_token<TokenType>(): bool {
-        let deployer = get_deployer_addr<TokenType>();
-        exists<TokenInfo<TokenType>>(deployer)
+        let deployer_addr = get_deployer_addr<TokenType>();
+        exists<TokenInfo<TokenType>>(deployer_addr)
+    }
+    spec is_token {
+//        pragma opaque;
+        pragma verify = false;
+        aborts_if false;
     }
 
     /// Returns the decimals for the `TokenType` token as defined
