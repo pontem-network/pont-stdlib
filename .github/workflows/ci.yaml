@@ -21,13 +21,13 @@ jobs:
         uses: dsaltares/fetch-gh-release-asset@0.06
         with:
           repo: "pontem-network/move-tools"
-          version: "tags/1.5.4"
-          file: dove-1.5.4-linux-x86_64
+          version: "tags/1.5.5"
+          file: dove-1.5.5-linux-x86_64
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Prepare dove
         run: |
-          mv dove-1.5.4-linux-x86_64 dove
+          mv dove-1.5.5-linux-x86_64 dove
           sudo chown runner ./dove && chmod +x ./dove
           echo "Dove: $(./dove -V)"
 
