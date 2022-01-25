@@ -4,7 +4,7 @@ module PontemFramework::Genesis {
     use PontemFramework::PontTimestamp;
     use PontemFramework::PontBlock;
     use PontemFramework::ChainId;
-    use PontemFramework::PONT;
+    use PontemFramework::NOX;
     use PontemFramework::KSM;
 
     /// Initializes the Pontem framework.
@@ -25,7 +25,7 @@ module PontemFramework::Genesis {
         ChainId::initialize(root_account, chain_id);
 
         // Currencies setup.
-        PONT::initialize(root_account);
+        NOX::initialize(root_account);
         KSM::initialize(root_account);
 
         PontTimestamp::set_time_has_started(root_account);
