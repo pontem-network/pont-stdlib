@@ -3,7 +3,7 @@ module PontemFramework::GenesisTests {
     use PontemFramework::Genesis;
     use PontemFramework::Token;
     use PontemFramework::KSM::KSM;
-    use PontemFramework::PONT::PONT;
+    use PontemFramework::NOX::NOX;
 
     #[test(acc = @0x1234)]
     #[expected_failure(abort_code = 2)]
@@ -23,6 +23,6 @@ module PontemFramework::GenesisTests {
         Genesis::setup(&root_acc, 1);
 
         Token::assert_is_token<KSM>();
-        Token::assert_is_token<PONT>();
+        Token::assert_is_token<NOX>();
     }
 }

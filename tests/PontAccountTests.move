@@ -2,7 +2,7 @@
 module PontemFramework::PontAccountTests {
     use Std::Signer;
     use PontemFramework::Genesis;
-    use PontemFramework::PONT::{Self, PONT};
+    use PontemFramework::NOX::{Self, NOX};
     use PontemFramework::PontAccount;
     use PontemFramework::Token;
 
@@ -13,17 +13,17 @@ module PontemFramework::PontAccountTests {
         let user1_addr = Signer::address_of(&user1_acc);
         let user2_addr = Signer::address_of(&user2_acc);
 
-        let ponts = PONT::mint(&root_acc, 10);
+        let ponts = NOX::mint(&root_acc, 10);
         let (ponts_7, ponts_3) = Token::split(ponts, 3);
 
         PontAccount::deposit(&root_acc, user1_addr, ponts_7);
         PontAccount::deposit(&root_acc, user2_addr, ponts_3);
 
-        assert!(PontAccount::balance<PONT>(user1_addr) == 7, 1);
-        assert!(PontAccount::balance<PONT>(user2_addr) == 3, 2);
+        assert!(PontAccount::balance<NOX>(user1_addr) == 7, 1);
+        assert!(PontAccount::balance<NOX>(user2_addr) == 3, 2);
 
-        PontAccount::pay_from<PONT>(&user1_acc, user2_addr, 5);
-        assert!(PontAccount::balance<PONT>(user1_addr) == 2, 3);
-        assert!(PontAccount::balance<PONT>(user2_addr) == 8, 4);
+        PontAccount::pay_from<NOX>(&user1_acc, user2_addr, 5);
+        assert!(PontAccount::balance<NOX>(user1_addr) == 2, 3);
+        assert!(PontAccount::balance<NOX>(user2_addr) == 8, 4);
     }
 }

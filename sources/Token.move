@@ -27,7 +27,7 @@ module PontemFramework::Token {
     struct MintEvent has drop, store {
         /// Funds added to the system
         amount: u64,
-        /// Symbol, e.g. "PONT".
+        /// Symbol, e.g. "NOX".
         symbol: String,
     }
 
@@ -37,7 +37,7 @@ module PontemFramework::Token {
     struct BurnEvent has drop, store {
         /// Funds removed from the system
         amount: u64,
-        /// Symbol, e.g. "PONT".
+        /// Symbol, e.g. "NOX".
         symbol: String,
     }
 
@@ -66,7 +66,7 @@ module PontemFramework::Token {
         /// Decimals amount of `TokenType` token.
         decimals: u8,
         /// The code symbol for this `TokenType`.
-        /// e.g. for "PONT" this is x"504f4e54". No character limit.
+        /// e.g. for "NOX" this is x"504f4e54". No character limit.
         symbol: String,
         /// Event stream for minting and where `MintEvent`s will be emitted.
         mint_events: EventHandle<MintEvent>,
