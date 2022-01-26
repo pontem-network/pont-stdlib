@@ -1,6 +1,6 @@
 [package]
 name = "PontStdlib"
-version = "0.0.1"
+version = "1.0.0"
 authors = []
 dialect = "Pont"
 
@@ -10,4 +10,4 @@ PontemFramework = "0x1"
 Root = "0xA550C18"
 
 [dependencies]
-MoveStdlib = { git = "https://github.com/pontem-network/move-stdlib.git", rev = "12c5488729b8377b90f247537459f16ef1383d43"}
+MoveStdlib = { git = "https://github.com/pontem-network/move-stdlib.git", rev = "release-v1.0.0"}
