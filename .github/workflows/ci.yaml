@@ -1,4 +1,4 @@
-name: tests
+name: Tests
 on:
   pull_request:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   tests:
-    name: test on ubuntu-latest
+    name: Test
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -17,25 +17,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Fetch latest move-tools dove binary
-        uses: dsaltares/fetch-gh-release-asset@0.06
+      - name: Get dove
+        uses: pontem-network/get-dove@main
         with:
-          repo: "pontem-network/move-tools"
-          version: "tags/1.5.5"
-          file: dove-1.5.5-linux-x86_64
+          version: latest
+          # boogie: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Prepare dove
-        run: |
-          mv dove-1.5.5-linux-x86_64 dove
-          sudo chown runner ./dove && chmod +x ./dove
-          echo "Dove: $(./dove -V)"
-
       - name: Build
-        run: ./dove package test
+        run: dove package build
 
       - name: Test
-        run: ./dove package test
+        run: dove package test
 
-#      - name: Prove
-#        run: ./dove package prove
+      # - name: Prove
+      #   run: dove package prove
