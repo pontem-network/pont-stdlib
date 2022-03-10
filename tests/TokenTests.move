@@ -48,7 +48,7 @@ module PontemFramework::TokenTests {
         PontAccount::deposit_token(user_addr, ucoins, minter_addr);
         assert!(PontAccount::balance<UCOIN>(user_addr) == 10, 2);
 
-        let withdrawn_ucoins = PontAccount::withdraw<UCOIN>(&user_acc, 3);
+        let withdrawn_ucoins = PontAccount::withdraw_tokens<UCOIN>(&user_acc, 3);
         assert!(PontAccount::balance<UCOIN>(user_addr) == 7, 2);
 
         UCOIN::burn(&minter_acc, withdrawn_ucoins);

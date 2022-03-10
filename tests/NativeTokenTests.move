@@ -22,8 +22,8 @@ module PontemFramework::NativeTokenTests {
         assert!(PontAccount::balance<NOX>(user_addr) == 2, 1);
         assert!(PontAccount::balance<KSM>(user_addr) == 3, 2);
 
-        let withdrawn_ponts = PontAccount::withdraw<NOX>(&user_acc, 1);
-        let withdrawn_ksms = PontAccount::withdraw<KSM>(&user_acc, 1);
+        let withdrawn_ponts = PontAccount::withdraw_tokens<NOX>(&user_acc, 1);
+        let withdrawn_ksms = PontAccount::withdraw_tokens<KSM>(&user_acc, 1);
 
         assert!(PontAccount::balance<NOX>(user_addr) == 1, 3);
         assert!(PontAccount::balance<KSM>(user_addr) == 2, 4);
