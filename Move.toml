@@ -10,4 +10,4 @@ PontemFramework = "0x1"
 Root = "0xA550C18"
 
 [dependencies]
-MoveStdlib = { git = "https://github.com/pontem-network/move-stdlib.git", rev = "release-v1.0.0"}
+MoveStdlib = { git = "https://github.com/pontem-network/move-stdlib.git", rev = "new-reflect-module"}

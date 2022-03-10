@@ -16,13 +16,13 @@ module PontemFramework::PontAccountTests {
         let ponts = NOX::mint(&root_acc, 10);
         let (ponts_7, ponts_3) = Token::split(ponts, 3);
 
-        PontAccount::deposit(&root_acc, user1_addr, ponts_7);
-        PontAccount::deposit(&root_acc, user2_addr, ponts_3);
+        PontAccount::deposit_token(user1_addr, ponts_7, @Root);
+        PontAccount::deposit_token(user2_addr, ponts_3, @Root);
 
         assert!(PontAccount::balance<NOX>(user1_addr) == 7, 1);
         assert!(PontAccount::balance<NOX>(user2_addr) == 3, 2);
 
-        PontAccount::pay_from<NOX>(&user1_acc, user2_addr, 5);
+        PontAccount::transfer_tokens<NOX>(&user1_acc, user2_addr, 5);
         assert!(PontAccount::balance<NOX>(user1_addr) == 2, 3);
         assert!(PontAccount::balance<NOX>(user2_addr) == 8, 4);
     }

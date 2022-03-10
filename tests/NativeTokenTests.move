@@ -14,9 +14,10 @@ module PontemFramework::NativeTokenTests {
         let ponts = NOX::mint(&root_acc, 2);
         let ksms = KSM::mint(&root_acc, 3);
 
+        let root_addr = Signer::address_of(&root_acc);
         let user_addr = Signer::address_of(&user_acc);
-        PontAccount::deposit(&root_acc, user_addr, ponts);
-        PontAccount::deposit(&root_acc, user_addr, ksms);
+        PontAccount::deposit_token(user_addr, ponts, root_addr);
+        PontAccount::deposit_token(user_addr, ksms, root_addr);
 
         assert!(PontAccount::balance<NOX>(user_addr) == 2, 1);
         assert!(PontAccount::balance<KSM>(user_addr) == 3, 2);

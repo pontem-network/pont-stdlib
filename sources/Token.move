@@ -134,15 +134,13 @@ module PontemFramework::Token {
         Token { value: amount }
     }
     spec withdraw {
-        pragma opaque;
-        pragma verify = false;
-        aborts_if false;
-//        include WithdrawAborts<TokenType> { token, amount };
+//        pragma opaque;
+        include AbortsIfTokenValueLessThanAmount<TokenType> { token, amount };
 
         ensures token.value == old(token.value) - amount;
         ensures result.value == amount;
     }
-    spec schema WithdrawAborts<TokenType> {
+    spec schema AbortsIfTokenValueLessThanAmount<TokenType> {
         token: Token<TokenType>;
         amount: u64;
 
@@ -185,14 +183,7 @@ module PontemFramework::Token {
         pragma opaque;
         pragma verify = false;
         aborts_if false;
-//        aborts_if false;
-//        include AbortsIfDepositOverflow<TokenType>;
         ensures token.value == old(token.value) + check.value;
-    }
-    spec schema AbortsIfDepositOverflow<TokenType> {
-        token: Token<TokenType>;
-        check: Token<TokenType>;
-        aborts_if token.value + check.value > MAX_U64 with Errors::LIMIT_EXCEEDED;
     }
 
     /// Destroy a zero-value token. Calls will fail if the `value` in the passed-in `token` is non-zero
@@ -386,11 +377,6 @@ module PontemFramework::Token {
         let deployer_addr = get_deployer_addr<TokenType>();
         exists<TokenInfo<TokenType>>(deployer_addr)
     }
-    spec is_token {
-//        pragma opaque;
-        pragma verify = false;
-        aborts_if false;
-    }
 
     /// Returns the decimals for the `TokenType` token as defined
     /// in its `TokenInfo`.
@@ -414,7 +400,6 @@ module PontemFramework::Token {
         *&borrow_global<TokenInfo<TokenType>>(get_deployer_addr<TokenType>()).symbol
     }
     spec symbol {
-        pragma opaque;
         include AbortsIfTokenNotRegistered<TokenType>;
         ensures result == spec_symbol<TokenType>();
     }
@@ -431,7 +416,6 @@ module PontemFramework::Token {
         assert!(is_token<TokenType>(), Errors::not_published(ERR_TOKEN_INFO));
     }
     spec assert_is_token {
-        pragma opaque;
         include AbortsIfTokenNotRegistered<TokenType>;
     }
     spec schema AbortsIfTokenNotRegistered<TokenType> {
