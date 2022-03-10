@@ -210,6 +210,7 @@ module PontemFramework::PontAccount {
         payer_addr: address;
         payee_addr: address;
         amount: u64;
+        ensures exists<PontAccount>(payee_addr);
         ensures payer_addr == payee_addr
                 ==> balance<TokenType>(payer_addr) == old(balance<TokenType>(payer_addr));
         ensures payer_addr != payee_addr
