@@ -2,7 +2,6 @@
 name = "PontStdlib"
 version = "1.0.0"
 authors = []
-dialect = "Pont"
 
 [addresses]
 Std = "0x1"
