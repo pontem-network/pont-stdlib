@@ -28,8 +28,10 @@ module PontemFramework::ChainId {
         pragma opaque;
         let root_addr = Signer::address_of(root_account);
         modifies global<ChainId>(root_addr);
+
         include PontTimestamp::AbortsIfNotGenesis;
         include CoreAddresses::AbortsIfNotRoot{ account: root_account };
+
         aborts_if exists<ChainId>(root_addr) with Errors::ALREADY_PUBLISHED;
         ensures exists<ChainId>(root_addr);
     }
@@ -48,7 +50,7 @@ module PontemFramework::ChainId {
     /// # Initialization
 
     spec module {
-        /// When Diem is operating, the chain id is always available.
+        /// When Pontem is operating, the chain id is always available.
         invariant [suspendable] PontTimestamp::is_operating() ==> exists<ChainId>(@Root);
 
         // Could also specify that ChainId is not stored on any other address, but it doesn't matter.

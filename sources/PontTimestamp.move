@@ -73,18 +73,6 @@ module PontemFramework::PontTimestamp {
         global<CurrentTimeMicroseconds>(@Root).microseconds / MICRO_CONVERSION_FACTOR
     }
 
-    #[test_only]
-    public fun set_time_microseconds(ms: u64) acquires CurrentTimeMicroseconds {
-        assert!(is_operating(), Errors::invalid_state(ERR_NOT_OPERATING));
-        borrow_global_mut<CurrentTimeMicroseconds>(@Root).microseconds = ms;
-    }
-
-    #[test_only]
-    public fun set_time_seconds(s: u64) acquires CurrentTimeMicroseconds {
-        let microseconds = s * MICRO_CONVERSION_FACTOR;
-        set_time_microseconds(microseconds);
-    }
-
     /// Helper function to determine if Pontem is in genesis state.
     public fun is_genesis(): bool {
         !exists<CurrentTimeMicroseconds>(@Root)
@@ -122,6 +110,18 @@ module PontemFramework::PontTimestamp {
     /// Helper schema to specify that a function aborts if not operating.
     spec schema AbortsIfNotOperating {
         aborts_if !is_operating() with Errors::INVALID_STATE;
+    }
+
+    #[test_only]
+    public fun set_time_microseconds(ms: u64) acquires CurrentTimeMicroseconds {
+        assert!(is_operating(), Errors::invalid_state(ERR_NOT_OPERATING));
+        borrow_global_mut<CurrentTimeMicroseconds>(@Root).microseconds = ms;
+    }
+
+    #[test_only]
+    public fun set_time_seconds(s: u64) acquires CurrentTimeMicroseconds {
+        let microseconds = s * MICRO_CONVERSION_FACTOR;
+        set_time_microseconds(microseconds);
     }
 
     // ====================
