@@ -82,7 +82,7 @@ module PontemFramework::Token {
     /// A property expected of a `TokenInfo` resource didn't hold
     const ERR_TOKEN_INFO: u64 = 1;
     /// A property expected of the token provided didn't hold
-    const ERR_TOKEN: u64 = 2;
+    const ERR_INVALID_TOKEN: u64 = 2;
     /// The destruction of a non-zero token was attempted. Non-zero tokens must be burned.
     const ERR_DESTRUCTION_OF_NONZERO_TOKEN: u64 = 3;
     /// A withdrawal greater than the value of the token was attempted.
@@ -97,8 +97,7 @@ module PontemFramework::Token {
         Token<TokenType> { value: 0 }
     }
     spec zero {
-//        pragma opaque;
-        aborts_if !is_token<TokenType>() with Errors::NOT_PUBLISHED;
+        include AbortsIfTokenNotRegistered<TokenType>;
         ensures result.value == 0;
     }
 
@@ -117,7 +116,7 @@ module PontemFramework::Token {
         (token, other)
     }
     spec split {
-        aborts_if token.value < amount with Errors::LIMIT_EXCEEDED;
+        include AbortsIfTokenValueLessThanAmount<TokenType> { token, amount };
         ensures result_1.value == token.value - amount;
         ensures result_2.value == amount;
     }
@@ -134,9 +133,7 @@ module PontemFramework::Token {
         Token { value: amount }
     }
     spec withdraw {
-//        pragma opaque;
         include AbortsIfTokenValueLessThanAmount<TokenType> { token, amount };
-
         ensures token.value == old(token.value) - amount;
         ensures result.value == amount;
     }
@@ -154,7 +151,6 @@ module PontemFramework::Token {
         withdraw(token, val)
     }
     spec withdraw_all {
-        pragma opaque;
         ensures result.value == old(token.value);
         ensures token.value == 0;
     }
@@ -166,8 +162,7 @@ module PontemFramework::Token {
         token1
     }
     spec join {
-        pragma opaque;
-        aborts_if token1.value + token2.value > max_u64() with Errors::LIMIT_EXCEEDED;
+        include AbortsIfSumMaxU64<TokenType> { token1, token2 };
         ensures result.value == token1.value + token2.value;
     }
 
@@ -176,14 +171,18 @@ module PontemFramework::Token {
     /// The `check` tokens is consumed in the process
     public fun deposit<TokenType>(token: &mut Token<TokenType>, check: Token<TokenType>) {
         let Token { value } = check;
-        assert!(MAX_U64 - token.value >= value, Errors::limit_exceeded(ERR_TOKEN));
+        assert!(MAX_U64 - token.value >= value, Errors::limit_exceeded(ERR_INVALID_TOKEN));
         token.value = token.value + value;
     }
     spec deposit {
-        pragma opaque;
-        pragma verify = false;
-        aborts_if false;
+        include AbortsIfSumMaxU64<TokenType> { token1: token, token2: check };
         ensures token.value == old(token.value) + check.value;
+    }
+    spec schema AbortsIfSumMaxU64<TokenType> {
+        token1: Token<TokenType>;
+        token2: Token<TokenType>;
+
+        aborts_if token1.value + token2.value > max_u64() with Errors::LIMIT_EXCEEDED;
     }
 
     /// Destroy a zero-value token. Calls will fail if the `value` in the passed-in `token` is non-zero
@@ -194,7 +193,6 @@ module PontemFramework::Token {
         assert!(value == 0, Errors::invalid_argument(ERR_DESTRUCTION_OF_NONZERO_TOKEN))
     }
     spec destroy_zero {
-        pragma opaque;
         aborts_if token.value > 0 with Errors::INVALID_ARGUMENT;
     }
 
@@ -227,39 +225,17 @@ module PontemFramework::Token {
         Token<TokenType> { value }
     }
     spec mint {
-        pragma opaque;
         let deployer_addr = get_deployer_addr<TokenType>();
         modifies global<TokenInfo<TokenType>>(deployer_addr);
-        ensures exists<TokenInfo<TokenType>>(deployer_addr);
-        include MintAbortsIf<TokenType> { deployer_addr };
-        include MintEnsures<TokenType>;
-        include MintEmits<TokenType>;
-    }
-    spec schema MintAbortsIf<TokenType> {
-        value: u64;
-        deployer_addr: address;
+
         include AbortsIfTokenNotRegistered<TokenType>;
         let token_info = global<TokenInfo<TokenType>>(deployer_addr);
         aborts_if token_info.total_value + value > max_u128() with Errors::LIMIT_EXCEEDED;
-    }
-    spec schema MintEnsures<TokenType> {
-        value: u64;
-        result: Token<TokenType>;
-        let deployer_addr = get_deployer_addr<TokenType>();
-        let info = global<TokenInfo<TokenType>>(deployer_addr);
-        let post post_info = global<TokenInfo<TokenType>>(deployer_addr);
+
+        let post post_token_info = global<TokenInfo<TokenType>>(deployer_addr);
         ensures exists<TokenInfo<TokenType>>(deployer_addr);
-        ensures post_info == update_field(info, total_value, info.total_value + value);
+        ensures post_token_info == update_field(token_info, total_value, token_info.total_value + value);
         ensures result.value == value;
-    }
-    spec schema MintEmits<TokenType> {
-        value: u64;
-        let info = global<TokenInfo<TokenType>>(get_deployer_addr<TokenType>());
-        let msg = MintEvent{
-            amount: value,
-            symbol: info.symbol,
-        };
-        emits msg to info.mint_events;
     }
 
     /// Burn `to_burn` tokens.
@@ -336,12 +312,6 @@ module PontemFramework::Token {
         (MintCapability<TokenType>{}, BurnCapability<TokenType>{})
     }
     spec register_token {
-        include RegisterTokenAbortsIf<TokenType>;
-    }
-    spec schema RegisterTokenAbortsIf<TokenType> {
-        decimals: u8;
-        account: signer;
-
         let acc_addr = Signer::address_of(account);
         aborts_if exists<TokenInfo<TokenType>>(acc_addr) with Errors::ALREADY_PUBLISHED;
         aborts_if acc_addr != get_deployer_addr<TokenType>() with Errors::CUSTOM;

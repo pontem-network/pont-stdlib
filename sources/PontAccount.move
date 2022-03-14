@@ -109,6 +109,9 @@ module PontemFramework::PontAccount {
         include Token::AbortsIfTokenNotRegistered<TokenType>;
         include AbortsIfCoreAddress { addr: to_addr };
 
+        aborts_if exists<Balance<TokenType>>(to_addr) &&
+                  global<Balance<TokenType>>(to_addr).token.value + token.value > max_u64() with Errors::LIMIT_EXCEEDED;
+
         let deposit_amount = token.value;
         aborts_if deposit_amount == 0 with Errors::INVALID_ARGUMENT;
 
